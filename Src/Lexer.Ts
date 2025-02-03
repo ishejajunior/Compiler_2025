@@ -104,7 +104,55 @@ class Lexer {
         return new Token('ERROR', '');
     }
     
+    getNextToken(): Token {
+        while (this.currentChar) {
+            if (this.currentChar === '/' && this.peek() === '*') {
+                this.advance();
+                this.advance();
+                this.inComment = true;
+                this.skipComment();
+                continue;
+            }
+            if (this.inComment) {
+                this.skipComment();
+                continue;
+            }
+            if (/\s/.test(this.currentChar)) {
+                this.skipWhitespace();
+                continue;
+            }
+            if (this.currentChar === '$') {
+                this.advance();
+                return new Token('EOP', '$');
+            }
+            if (/[0-9]/.test(this.currentChar)) return this.number();
+            if (/[a-z]/.test(this.currentChar)) return this.identifier();
+            if (this.currentChar === '"') return this.string();
 
+            const singleCharTokens: { [key: string]: string } = {
+                '{': 'LBRACE', '}': 'RBRACE', '(': 'LPAREN', ')': 'RPAREN',
+                '+': 'INTOP', '=': 'ASSIGN'
+            };
+            if (this.currentChar in singleCharTokens) {
+                const token = new Token(singleCharTokens[this.currentChar], this.currentChar);
+                this.advance();
+                return token;
+            }
+            
+            if (this.currentChar === '!') {
+                this.advance();
+                if (this.currentChar === '=') {
+                    this.advance();
+                    return new Token('BOOLOP', '!=');
+                }
+                this.error("Expected '=' after '!'");
+                return new Token('ERROR', '!');
+            }
+
+            this.error(`Invalid character '${this.currentChar}'`);
+        }
+        return new Token('EOF', null);
+    }
 
 }
 
