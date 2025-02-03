@@ -59,7 +59,37 @@ class Lexer {
             }
             this.advance();
         }
-    }   
+    }
+    
+    identifier(): Token {
+        let result = '';
+
+        while (this.currentChar && /[a-z]/.test(this.currentChar)) {
+            result += this.currentChar;
+            this.advance();
+        }
+
+        const keywords: { [key: string]: string } = {
+            'print': 'PRINT', 'while': 'WHILE', 'if': 'IF',
+            'int': 'TYPE', 'string': 'TYPE', 'boolean': 'TYPE',
+            'true': 'BOOLVAL', 'false': 'BOOLVAL'
+        };
+        
+        return new Token(keywords[result] || 'ID', result);
+    }
+
+    number(): Token {
+        let result = '';
+
+        while (this.currentChar && /[0-9]/.test(this.currentChar)) {
+            result += this.currentChar;
+            this.advance();
+        }
+
+        return new Token('DIGIT', result);
+    }
+    
+
 }
 
 
