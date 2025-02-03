@@ -88,7 +88,23 @@ class Lexer {
 
         return new Token('DIGIT', result);
     }
+
+    string(): Token {
+        let result = '';
+        this.advance();
+        while (this.currentChar && this.currentChar !== '"') {
+            result += this.currentChar;
+            this.advance();
+        }
+        if (this.currentChar === '"') {
+            this.advance();
+            return new Token('STRING', result);
+        }
+        this.error('Unterminated string literal');
+        return new Token('ERROR', '');
+    }
     
+
 
 }
 
