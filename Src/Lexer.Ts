@@ -153,7 +153,32 @@ class Lexer {
         }
         return new Token('EOF', null);
     }
+}
 
+function compile(): void {
+    const sourceCode = (document.getElementById('sourceCode') as HTMLTextAreaElement).value;
+    const outputDiv = document.getElementById('output') as HTMLDivElement;
+    outputDiv.innerHTML = '';
+    
+    const lexer = new Lexer(sourceCode);
+    let token: Token;
+    let output = `<h3>Program 1</h3><table><tr><th>Token Type</th><th>Value</th></tr>`;
+    let warnings: string[] = [];
+    let foundEOP = false;
+    
+    while ((token = lexer.getNextToken()).type !== 'EOF') {
+        if (token.type === 'EOP') {
+            foundEOP = true;
+        }
+        output += `<tr><td>${token.type}</td><td>${token.value}</td></tr>`;
+    }
+    
+    output += '</table>';
+    if (!foundEOP) warnings.push('Warning: Program must end with "$"');
+    if (warnings.length > 0) output += warnings.map(w => `<div class='warning'>${w}</div>`).join('');
+    if (lexer.errors.length > 0) output += lexer.errors.map(e => `<div class='error'>${e}</div>`).join('');
+    
+    outputDiv.innerHTML = output;
 }
 
 
