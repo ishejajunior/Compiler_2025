@@ -1,13 +1,16 @@
+// Token class
 class Token {
     type: string;
     value: string | null;
 
+    // Constructor for the Token class
     constructor(type: string, value: string | null) {
         this.type = type;
         this.value = value;
     }
 }
 
+// Lexer class
 class Lexer {
     input: string;
     position: number;
@@ -27,12 +30,36 @@ class Lexer {
         this.foundStartBrace = false;
     }
     error(message: string): void {
-        this.errors.push(message);
+        this.errors.push(`Error at position ${this.position}: ${message}`);
+        this.advance();
     }
+
     advance(): void {
         this.position++;
         this.currentChar = this.input[this.position] || null;
     }
+
+    peek(): string | null {
+        return this.position + 1 > this.input.length - 1 ? null : this.input[this.position + 1];
+    }
+
+    skipWhitespace(): void {
+        while (this.currentChar && /\s/.test(this.currentChar)) {
+            this.advance();
+        }
+    }
+
+    skipComment(): void {
+        while (this.currentChar) {
+            if (this.currentChar === '*' && this.peek() === '/') {
+                this.advance();
+                this.advance();
+                this.inComment = false;
+                break;
+            }
+            this.advance();
+        }
+    }   
 }
 
 
