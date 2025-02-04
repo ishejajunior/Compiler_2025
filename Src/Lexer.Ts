@@ -19,6 +19,7 @@ class Lexer {
     errors: string[];
     programCount: number;
     foundStartBrace: boolean;
+    currentProgram: number;
 
     constructor(input: string) {
         this.input = input;
@@ -28,6 +29,7 @@ class Lexer {
         this.errors = [];
         this.programCount = 1;
         this.foundStartBrace = false;
+        this.currentProgram = 1;
     }
     error(message: string): void {
         this.errors.push(`Error at position ${this.position}: ${message}`);
@@ -189,25 +191,50 @@ function compile(): void {
     const outputDiv = document.getElementById('output') as HTMLDivElement;
     outputDiv.innerHTML = '';
     
-    const lexer = new Lexer(sourceCode);
-    let token: Token;
-    let output = `<h3>Program 1</h3><table><tr><th>Token Type</th><th>Value</th></tr>`;
-    let warnings: string[] = [];
-    let foundEOP = false;
+    const programs = sourceCode.split('$').filter(prog => prog.trim().length > 0);
+    let fullOutput = '';
     
-    while ((token = lexer.getNextToken()).type !== 'EOF') {
-        if (token.type === 'EOP') {
-            foundEOP = true;
+    for (let i = 0; i < programs.length; i++) {
+        const program = programs[i] + '$'; // Add back the $ that was removed in split
+        const lexer = new Lexer(program);
+        let token: Token;
+        let programOutput = `<h3>Program ${i + 1}</h3><table><tr><th>Token Type</th><th>Value</th></tr>`;
+        let warnings: string[] = [];
+        let foundEOP = false;
+        
+        try {
+            while ((token = lexer.getNextToken()).type !== 'EOF') {
+                if (token.type === 'EOP') {
+                    foundEOP = true;
+                }
+                programOutput += `<tr><td>${token.type}</td><td>${token.value}</td></tr>`;
+            }
+            
+            programOutput += '</table>';
+            
+            // Add warnings for this program
+            if (!foundEOP && i < programs.length - 1) {
+                warnings.push(`Warning: Program ${i + 1} must end with "$"`);
+            }
+            
+            // Add any lexer errors for this program
+            if (lexer.errors.length > 0) {
+                programOutput += lexer.errors.map(e => `<div class='error'>${e}</div>`).join('');
+            }
+            
+            // Add any warnings for this program
+            if (warnings.length > 0) {
+                programOutput += warnings.map(w => `<div class='warning'>${w}</div>`).join('');
+            }
+            
+        } catch (error) {
+            programOutput += `<div class='error'>Fatal error in Program ${i + 1}: ${error}</div>`;
         }
-        output += `<tr><td>${token.type}</td><td>${token.value}</td></tr>`;
+        
+        fullOutput += programOutput;
     }
     
-    output += '</table>';
-    if (!foundEOP) warnings.push('Warning: Program must end with "$"');
-    if (warnings.length > 0) output += warnings.map(w => `<div class='warning'>${w}</div>`).join('');
-    if (lexer.errors.length > 0) output += lexer.errors.map(e => `<div class='error'>${e}</div>`).join('');
-    
-    outputDiv.innerHTML = output;
+    outputDiv.innerHTML = fullOutput;
 }
 
 
