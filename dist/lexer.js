@@ -86,21 +86,12 @@ class Lexer {
     }
     string() {
         if (this.currentChar === '"') {
-            this.advance(); // Skip the opening quote
-            if (!this.currentChar) {
-                return new Token('ERROR', 'Unterminated string');
-            }
-            const char = this.currentChar;
-            this.advance();
-            return new Token('CHAR', char);
+            this.advance(); // Move past the quote
+            return new Token('QUOTE', '"');
         }
-        // If we're in the middle of a string (tracking internally)
+        // Handle the character
         const char = this.currentChar;
         this.advance();
-        // If we hit the closing quote
-        if (this.currentChar === '"') {
-            this.advance(); // Skip the closing quote
-        }
         return new Token('CHAR', char);
     }
     getNextToken() {
@@ -128,11 +119,11 @@ class Lexer {
                 return this.number();
             if (/[a-z]/.test(this.currentChar))
                 return this.identifier();
+            // Modified string handling
             if (this.currentChar === '"' ||
-                (this.peek() !== null &&
+                (this.position > 0 &&
                     this.input[this.position - 1] === '"' &&
-                    this.currentChar !== ' ' &&
-                    !/[)}]/.test(this.currentChar))) {
+                    !this.input.slice(this.position, this.position + 1).includes('"'))) {
                 return this.string();
             }
             const singleCharTokens = {
