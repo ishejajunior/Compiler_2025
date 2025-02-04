@@ -110,24 +110,26 @@ class Lexer {
     }
 
     string(): Token {
-        // Handle one character at a time from a string
-        this.advance(); // Skip the opening quote
-        if (!this.currentChar || this.currentChar === '"') {
-            this.advance(); // Skip the closing quote if present
-            return new Token('ERROR', '');
+        if (this.currentChar === '"') {
+            this.advance(); // Skip the opening quote
+            if (!this.currentChar) {
+                return new Token('ERROR', 'Unterminated string');
+            }
+            
+            const char = this.currentChar;
+            this.advance();
+            return new Token('CHAR', char);
         }
-
+        
+        // If we're in the middle of a string (tracking internally)
         const char = this.currentChar;
         this.advance();
         
-        // Skip to the end of the string if there are more characters
-        while (this.currentChar && this.currentChar !== '"') {
-            this.advance();
-        }
+        // If we hit the closing quote
         if (this.currentChar === '"') {
             this.advance(); // Skip the closing quote
         }
-
+        
         return new Token('CHAR', char);
     }
     
@@ -154,7 +156,13 @@ class Lexer {
             }
             if (/[0-9]/.test(this.currentChar)) return this.number();
             if (/[a-z]/.test(this.currentChar)) return this.identifier();
-            if (this.currentChar === '"') return this.string();
+            if (this.currentChar === '"' || 
+                (this.peek() !== null && 
+                 this.input[this.position - 1] === '"' && 
+                 this.currentChar !== ' ' && 
+                 !/[)}]/.test(this.currentChar))) {
+                return this.string();
+            }
 
             const singleCharTokens: { [key: string]: string } = {
                 '{': 'LBRACE', '}': 'RBRACE', '(': 'LPAREN', ')': 'RPAREN',
