@@ -2,11 +2,15 @@
 class Token {
     type: string;
     value: string | null;
+    line: number;
+    column: number;
 
     // Constructor for the Token class
     constructor(type: string, value: string | null) {
         this.type = type;
         this.value = value;
+        this.line = 0;
+        this.column = 0;
     }
 }
 
@@ -20,6 +24,8 @@ class Lexer {
     programCount: number;
     foundStartBrace: boolean;
     currentProgram: number;
+    line: number;
+    column: number;
 
     constructor(input: string) {
         this.input = input;
@@ -30,14 +36,21 @@ class Lexer {
         this.programCount = 1;
         this.foundStartBrace = false;
         this.currentProgram = 1;
+        this.line = 1;
+        this.column = 1;
     }
     error(message: string): void {
-        this.errors.push(`Error at position ${this.position}: ${message}`);
+        this.errors.push(`LEXER --> | Error: ${message} on line ${this.line}:${this.column}`);
         this.advance();
     }
 
     advance(): void {
+        if (this.currentChar === '\n') {
+            this.line++;
+            this.column = 0;
+        }
         this.position++;
+        this.column++;
         this.currentChar = this.input[this.position] || null;
     }
 
@@ -96,13 +109,19 @@ class Lexer {
             for (let i = 0; i < longestKeyword.length; i++) {
                 this.advance();
             }
-            return new Token(keywords[longestKeyword], longestKeyword);
+            const token = new Token(keywords[longestKeyword], longestKeyword);
+            token.line = this.line;
+            token.column = this.column - (longestKeyword.length || 0);
+            return token;
         }
 
         // If not a keyword, just return the single character as ID
         const char = this.currentChar;
         this.advance();
-        return new Token('ID', char);
+        const token = new Token('ID', char);
+        token.line = this.line;
+        token.column = this.column - 1;
+        return token;
     }
 
     number(): Token {
@@ -113,19 +132,28 @@ class Lexer {
 
         const digit = this.currentChar;
         this.advance();
-        return new Token('DIGIT', digit);
+        const token = new Token('DIGIT', digit);
+        token.line = this.line;
+        token.column = this.column - 1;
+        return token;
     }
 
     string(): Token {
         if (this.currentChar === '"') {
             this.advance(); // Move past the quote
-            return new Token('QUOTE', '"');
+            const token = new Token('QUOTE', '"');
+            token.line = this.line;
+            token.column = this.column - 1;
+            return token;
         }
         
         // Handle the character
         const char = this.currentChar;
         this.advance();
-        return new Token('CHAR', char);
+        const token = new Token('CHAR', char);
+        token.line = this.line;
+        token.column = this.column - 1;
+        return token;
     }
     
     getNextToken(): Token {
@@ -147,7 +175,10 @@ class Lexer {
             }
             if (this.currentChar === '$') {
                 this.advance();
-                return new Token('EOP', '$');
+                const token = new Token('EOP', '$');
+                token.line = this.line;
+                token.column = this.column - 1;
+                return token;
             }
             if (/[0-9]/.test(this.currentChar)) return this.number();
             if (/[a-z]/.test(this.currentChar)) return this.identifier();
@@ -167,6 +198,8 @@ class Lexer {
             if (this.currentChar in singleCharTokens) {
                 const token = new Token(singleCharTokens[this.currentChar], this.currentChar);
                 this.advance();
+                token.line = this.line;
+                token.column = this.column - 1;
                 return token;
             }
             
@@ -174,15 +207,30 @@ class Lexer {
                 this.advance();
                 if (this.currentChar === '=') {
                     this.advance();
-                    return new Token('BOOLOP', '!=');
+                    const token = new Token('BOOLOP', '!=');
+                    token.line = this.line;
+                    token.column = this.column - 2;
+                    return token;
                 }
                 this.error("Expected '=' after '!'");
-                return new Token('ERROR', '!');
+                const token = new Token('ERROR', '!');
+                token.line = this.line;
+                token.column = this.column - 1;
+                return token;
             }
 
             this.error(`Invalid character '${this.currentChar}'`);
         }
-        return new Token('EOF', null);
+        const token = new Token('EOF', null);
+        token.line = this.line;
+        token.column = this.column;
+        return token;
+    }
+
+    // Helper method to format token output
+    formatToken(type: string, value: string | null): string {
+        const displayValue = value === null ? '' : value;
+        return `LEXER --> | ${type} [ ${displayValue} ] on line ${this.line}:${this.column - (displayValue.length || 0)}`;
     }
 }
 
@@ -195,10 +243,10 @@ function compile(): void {
     let fullOutput = '';
     
     for (let i = 0; i < programs.length; i++) {
-        const program = programs[i] + '$'; // Add back the $ that was removed in split
+        const program = programs[i] + '$';
         const lexer = new Lexer(program);
         let token: Token;
-        let programOutput = `<h3>Program ${i + 1}</h3><table><tr><th>Token Type</th><th>Value</th></tr>`;
+        let programOutput = `<h3>Program ${i + 1}</h3>`;
         let warnings: string[] = [];
         let foundEOP = false;
         
@@ -207,14 +255,13 @@ function compile(): void {
                 if (token.type === 'EOP') {
                     foundEOP = true;
                 }
-                programOutput += `<tr><td>${token.type}</td><td>${token.value}</td></tr>`;
+                // Format each token with line and column info
+                programOutput += `<div>${lexer.formatToken(token.type, token.value)}</div>`;
             }
-            
-            programOutput += '</table>';
             
             // Add warnings for this program
             if (!foundEOP && i < programs.length - 1) {
-                warnings.push(`Warning: Program ${i + 1} must end with "$"`);
+                warnings.push(`LEXER --> | Warning: Program ${i + 1} must end with "$" on line ${lexer.line}:${lexer.column}`);
             }
             
             // Add any lexer errors for this program
@@ -228,7 +275,7 @@ function compile(): void {
             }
             
         } catch (error) {
-            programOutput += `<div class='error'>Fatal error in Program ${i + 1}: ${error}</div>`;
+            programOutput += `<div class='error'>LEXER --> | Fatal error in Program ${i + 1} on line ${lexer.line}:${lexer.column}: ${error}</div>`;
         }
         
         fullOutput += programOutput;
