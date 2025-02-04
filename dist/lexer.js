@@ -45,39 +45,60 @@ class Lexer {
         }
     }
     identifier() {
-        let result = '';
-        while (this.currentChar && /[a-z]/.test(this.currentChar)) {
-            result += this.currentChar;
-            this.advance();
+        // Instead of building a string, just get one character
+        if (!this.currentChar) {
+            return new Token('ERROR', null);
         }
+        const char = this.currentChar;
+        this.advance();
+        // Check if it's a keyword first
         const keywords = {
             'print': 'PRINT', 'while': 'WHILE', 'if': 'IF',
             'int': 'TYPE', 'string': 'TYPE', 'boolean': 'TYPE',
             'true': 'BOOLVAL', 'false': 'BOOLVAL'
         };
-        return new Token(keywords[result] || 'ID', result);
+        // If current sequence matches a keyword, return it as a keyword
+        let potentialKeyword = '';
+        let pos = this.position - 1;
+        while (pos >= 0 && /[a-z]/.test(this.input[pos])) {
+            potentialKeyword = this.input[pos] + potentialKeyword;
+            pos--;
+        }
+        if (keywords[potentialKeyword]) {
+            // Move position to end of keyword
+            this.position = pos + potentialKeyword.length + 1;
+            this.currentChar = this.input[this.position] || null;
+            return new Token(keywords[potentialKeyword], potentialKeyword);
+        }
+        // If not a keyword, return as ID
+        return new Token('ID', char);
     }
     number() {
-        let result = '';
-        while (this.currentChar && /[0-9]/.test(this.currentChar)) {
-            result += this.currentChar;
-            this.advance();
+        // Instead of building a number string, just get one digit
+        if (!this.currentChar) {
+            return new Token('ERROR', null);
         }
-        return new Token('DIGIT', result);
+        const digit = this.currentChar;
+        this.advance();
+        return new Token('DIGIT', digit);
     }
     string() {
-        let result = '';
+        // Handle one character at a time from a string
+        this.advance(); // Skip the opening quote
+        if (!this.currentChar || this.currentChar === '"') {
+            this.advance(); // Skip the closing quote if present
+            return new Token('ERROR', '');
+        }
+        const char = this.currentChar;
         this.advance();
+        // Skip to the end of the string if there are more characters
         while (this.currentChar && this.currentChar !== '"') {
-            result += this.currentChar;
             this.advance();
         }
         if (this.currentChar === '"') {
-            this.advance();
-            return new Token('STRING', result);
+            this.advance(); // Skip the closing quote
         }
-        this.error('Unterminated string literal');
-        return new Token('ERROR', '');
+        return new Token('CHAR', char);
     }
     getNextToken() {
         while (this.currentChar) {
