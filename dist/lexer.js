@@ -49,26 +49,31 @@ class Lexer {
             return new Token('ERROR', null);
         }
         // Look ahead to check for keywords first
-        let potentialKeyword = '';
         let tempPos = this.position;
         let tempChar = this.currentChar;
-        while (tempChar && /[a-z]/.test(tempChar)) {
-            potentialKeyword += tempChar;
-            tempPos++;
-            tempChar = this.input[tempPos] || null;
-        }
+        let longestKeyword = '';
         const keywords = {
             'print': 'PRINT', 'while': 'WHILE', 'if': 'IF',
             'int': 'TYPE', 'string': 'TYPE', 'boolean': 'TYPE',
             'true': 'BOOLVAL', 'false': 'BOOLVAL'
         };
-        // If it's a keyword, consume it entirely and return it
-        if (keywords[potentialKeyword]) {
-            // Move position to end of keyword
-            for (let i = 0; i < potentialKeyword.length; i++) {
+        // Build potential keyword and check at each step
+        let potentialKeyword = '';
+        while (tempChar && /[a-z]/.test(tempChar)) {
+            potentialKeyword += tempChar;
+            if (keywords[potentialKeyword]) {
+                longestKeyword = potentialKeyword;
+            }
+            tempPos++;
+            tempChar = this.input[tempPos] || null;
+        }
+        // If we found a keyword
+        if (longestKeyword) {
+            // Advance past the keyword
+            for (let i = 0; i < longestKeyword.length; i++) {
                 this.advance();
             }
-            return new Token(keywords[potentialKeyword], potentialKeyword);
+            return new Token(keywords[longestKeyword], longestKeyword);
         }
         // If not a keyword, just return the single character as ID
         const char = this.currentChar;
