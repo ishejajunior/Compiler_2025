@@ -45,32 +45,34 @@ class Lexer {
         }
     }
     identifier() {
-        // Instead of building a string, just get one character
         if (!this.currentChar) {
             return new Token('ERROR', null);
         }
-        const char = this.currentChar;
-        this.advance();
-        // Check if it's a keyword first
+        // Look ahead to check for keywords first
+        let potentialKeyword = '';
+        let tempPos = this.position;
+        let tempChar = this.currentChar;
+        while (tempChar && /[a-z]/.test(tempChar)) {
+            potentialKeyword += tempChar;
+            tempPos++;
+            tempChar = this.input[tempPos] || null;
+        }
         const keywords = {
             'print': 'PRINT', 'while': 'WHILE', 'if': 'IF',
             'int': 'TYPE', 'string': 'TYPE', 'boolean': 'TYPE',
             'true': 'BOOLVAL', 'false': 'BOOLVAL'
         };
-        // If current sequence matches a keyword, return it as a keyword
-        let potentialKeyword = '';
-        let pos = this.position - 1;
-        while (pos >= 0 && /[a-z]/.test(this.input[pos])) {
-            potentialKeyword = this.input[pos] + potentialKeyword;
-            pos--;
-        }
+        // If it's a keyword, consume it entirely and return it
         if (keywords[potentialKeyword]) {
             // Move position to end of keyword
-            this.position = pos + potentialKeyword.length + 1;
-            this.currentChar = this.input[this.position] || null;
+            for (let i = 0; i < potentialKeyword.length; i++) {
+                this.advance();
+            }
             return new Token(keywords[potentialKeyword], potentialKeyword);
         }
-        // If not a keyword, return as ID
+        // If not a keyword, just return the single character as ID
+        const char = this.currentChar;
+        this.advance();
         return new Token('ID', char);
     }
     number() {
