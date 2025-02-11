@@ -3,32 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Errorminator</title>
+    <title>Judgment Compiler</title>
     <link rel="stylesheet" href="index.css">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <h1>Errorminator, your compiler will be back… to fix errors.</h1>
+    <div class="title-container">
+        <h1>Judgment Compiler</h1>
+        <div class="subtitle">Bad code gets Terminated!</div>
+    </div>
     <div class="container">
         <div class="column">
-            <h2>Source Code</h2>
-            <textarea id="sourceCode" placeholder="Enter your source code here...">
-                /* Example program */
-            {
-                int a
-                string b
-                a = 5
-                b = "hello"
-                print(a)
-            }
-            </textarea>
-            <button onclick="compile()">Compile</button>
+            <h2>TARGET CODE</h2>
+            <textarea id="sourceCode" placeholder="ENTER CODE FOR ANALYSIS...">/* Example program */
+{
+    int a
+    string b
+    a = 5
+    b = "hello"
+    print(a)
+}</textarea>
+            <button onclick="compile()">INITIALIZE ANALYSIS</button>
         </div>
         <div class="column">
-
-            <h2>Compiler Output</h2>
+            <h2>ANALYSIS OUTPUT</h2>
             <div id="output" class="output"></div>
         </div>
     </div>
     <script src="dist/lexer.js"></script>
 </body>
+</html>
 
