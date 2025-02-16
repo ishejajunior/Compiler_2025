@@ -1,2 +1,75 @@
 # Compiler_2025
-Recursive descent Compiler
+
+A recursive descent compiler implementation for Alan++ language.
+
+## Description
+
+This project implements a recursive descent compiler that translates Alan++ into Machine Code. The compiler follows standard compilation phases including lexical analysis, parsing, semantic analysis, and code generation.
+
+## Features
+
+- Lexical analysis (tokenization)
+- Recursive descent parsing
+- Abstract Syntax Tree (AST) construction
+- Semantic analysis
+- Code generation for target machine code
+
+## Getting Started
+
+### Prerequisites
+
+- TypeScript installed globally (`npm install -g typescript`)
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/Compiler_2025.git
+   cd Compiler_2025
+   ```
+2. Compile the TypeScript code:
+   ```bash
+   tsc
+   ```
+
+## Project Structure
+
+### Source Code
+
+- `src/`: TypeScript source files
+  - `Lexer.ts`: Tokenization and lexical analysis
+  - `Parser.ts`: Recursive descent parsing implementation
+  - `AST.ts`: Abstract Syntax Tree definitions and construction
+  - `CodeGenerator.ts`: Machine code generation
+
+### Compiled Output
+
+- `dist/`: Compiled JavaScript files
+  - `Lexer.js`: Compiled lexical analyzer
+  - `Parser.js`: Compiled parser
+  - `AST.js`: Compiled AST module
+  - `CodeGenerator.js`: Compiled code generator
+
+### Web Interface
+
+- `index.html`: Web interface for the compiler
+- `index.css`: Styling for the web interface
+
+### Configuration
+
+- `tsconfig.json`: TypeScript compiler configuration
+
+### Additional Resources
+
+- `labs/`: Course laboratory assignments
+- `Documentation/`: Project documentation and notes
+  - Implementation details
+  - AI assistance documentation
+  - LaTeX documentation
+
+## License
+
+MIT License
+
+Copyright (c) 2025 ishejajunior
+
