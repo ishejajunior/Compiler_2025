@@ -219,6 +219,23 @@ class Lexer {
                 return token;
             }
 
+            // Add support for == operator
+            if (this.currentChar === '=') {
+                this.advance();
+                if (this.currentChar === '=') {
+                    this.advance();
+                    const token = new Token('BOOLOP', '==');
+                    token.line = this.line;
+                    token.column = this.column - 2;
+                    return token;
+                }
+                // Single = is an assignment operator
+                const token = new Token('ASSIGN', '=');
+                token.line = this.line;
+                token.column = this.column - 1;
+                return token;
+            }
+
             this.error(`Invalid character '${this.currentChar}'`);
         }
         const token = new Token('EOF', null);
@@ -230,7 +247,9 @@ class Lexer {
     // Helper method to format token output
     formatToken(type: string, value: string | null): string {
         const displayValue = value === null ? '' : value;
-        return `LEXER --> | ${type} [ ${displayValue} ] on line ${this.line}:${this.column - (displayValue.length || 0)}`;
+        const isError = type === 'ERROR';
+        const style = isError ? 'color: red;' : '';
+        return `<span style="${style}">LEXER --> | ${type} [ ${displayValue} ] on line ${this.line}:${this.column - (displayValue.length || 0)}</span>`;
     }
 }
 
@@ -266,7 +285,7 @@ function compile(): void {
             
             // Add any lexer errors for this program
             if (lexer.errors.length > 0) {
-                programOutput += lexer.errors.map(e => `<div class='error'>${e}</div>`).join('');
+                programOutput += lexer.errors.map(e => `<div style="color: red;">${e}</div>`).join('');
             }
             
             // Add any warnings for this program
