@@ -42,7 +42,18 @@ class Lexer {
         this.inString = false;
     }
     error(message: string): void {
-        this.errors.push(`LEXER --> | Error: ${message} on line ${this.line}:${this.column}`);
+        const errorMessage = `LEXER --> | Error: ${message} on line ${this.line}:${this.column}`;
+        this.errors.push(errorMessage); // Keep track for error count
+        // Format and display error immediately
+        const outputDiv = document.getElementById('output');
+        if (outputDiv) {
+            const errorDiv = document.createElement('div');
+            errorDiv.style.color = 'red';
+            errorDiv.style.fontWeight = 'bold';
+            errorDiv.style.marginLeft = '20px';
+            errorDiv.textContent = errorMessage;
+            outputDiv.appendChild(errorDiv);
+        }
         this.advance();
     }
 
@@ -212,8 +223,9 @@ class Lexer {
             }
             
             if (this.currentChar === '!') {
+                const nextChar = this.peek();
                 this.advance();
-                if (this.currentChar === '=') {
+                if (nextChar === '=') {
                     this.advance();
                     const token = new Token('BOOLOP', '!=');
                     token.line = this.line;
@@ -223,7 +235,7 @@ class Lexer {
                 this.error("Expected '=' after '!'");
                 const token = new Token('ERROR', '!');
                 token.line = this.line;
-                token.column = this.column - 1;
+                token.column = this.column;
                 return token;
             }
 
@@ -244,7 +256,13 @@ class Lexer {
                 return token;
             }
 
-            this.error(`Invalid character '${this.currentChar}'`);
+            // Make invalid character error more specific
+            const invalidChar = this.currentChar;
+            this.error(`Invalid character '${invalidChar}'`);
+            const token = new Token('ERROR', invalidChar);
+            token.line = this.line;
+            token.column = this.column;
+            return token;
         }
         const token = new Token('EOF', null);
         token.line = this.line;
@@ -254,10 +272,29 @@ class Lexer {
 
     // Helper method to format token output
     formatToken(type: string, value: string | null): string {
-        const displayValue = value === null ? '' : value;
-        const isError = type === 'ERROR';
-        const style = isError ? 'color: red;' : '';
+        let displayValue = value === null ? '' : value;
+        let style = '';
+        
+        // Add red color for errors
+        if (type === 'ERROR') {
+            style = 'color: red; font-weight: bold;';
+            // Handle special characters in error display
+            if (value === ' ') displayValue = 'SPACE';
+            else if (value === '\n') displayValue = 'NEWLINE';
+            else if (value === '\t') displayValue = 'TAB';
+            else if (!value) displayValue = 'UNKNOWN';
+        }
+        
         return `<span style="${style}">LEXER --> | ${type} [ ${displayValue} ] on line ${this.line}:${this.column - (displayValue.length || 0)}</span>`;
+    }
+
+    // Add a method to get program status
+    getProgramStatus(): string {
+        if (this.errors.length === 0) {
+            return `<div style="color: #4CAF50; font-weight: bold;">LEXER --> | Program completed successfully with 0 errors</div>`;
+        } else {
+            return `<div style="color: red; font-weight: bold;">LEXER --> | Program failed with ${this.errors.length} error${this.errors.length > 1 ? 's' : ''}</div>`;
+        }
     }
 }
 
@@ -266,49 +303,53 @@ function compile(): void {
     const outputDiv = document.getElementById('output') as HTMLDivElement;
     outputDiv.innerHTML = '';
     
-    const programs = sourceCode.split('$').filter(prog => prog.trim().length > 0);
-    let fullOutput = '';
+    const lexer = new Lexer(sourceCode);
+    let token: Token;
+    let programCount = 1;
+    let currentOutput = `<h3>Program ${programCount}</h3>`;
+    let warnings: string[] = [];
+    let foundEOP = false;
     
-    for (let i = 0; i < programs.length; i++) {
-        const program = programs[i] + '$';
-        const lexer = new Lexer(program);
-        let token: Token;
-        let programOutput = `<h3>Program ${i + 1}</h3>`;
-        let warnings: string[] = [];
-        let foundEOP = false;
-        
-        try {
-            while ((token = lexer.getNextToken()).type !== 'EOF') {
-                if (token.type === 'EOP') {
-                    foundEOP = true;
-                }
-                // Format each token with line and column info
-                programOutput += `<div>${lexer.formatToken(token.type, token.value)}</div>`;
-            }
+    try {
+        while ((token = lexer.getNextToken()).type !== 'EOF') {
+            // Add token to current program output
+            currentOutput += `<div>${lexer.formatToken(token.type, token.value)}</div>`;
             
-            // Add warnings for this program
-            if (!foundEOP && i < programs.length - 1) {
-                warnings.push(`LEXER --> | Warning: Program ${i + 1} must end with "$" on line ${lexer.line}:${lexer.column}`);
+            if (token.type === 'EOP') {
+                foundEOP = true;
+                // Add program status before moving to next program
+                currentOutput += lexer.getProgramStatus();
+                outputDiv.innerHTML += currentOutput;
+                
+                // Reset for next program
+                programCount++;
+                currentOutput = `<h3>Program ${programCount}</h3>`;
+                foundEOP = false;
+                lexer.errors = []; // Reset error count for next program
+                continue;
             }
-            
-            // Add any lexer errors for this program
-            if (lexer.errors.length > 0) {
-                programOutput += lexer.errors.map(e => `<div style="color: red;">${e}</div>`).join('');
-            }
-            
-            // Add any warnings for this program
-            if (warnings.length > 0) {
-                programOutput += warnings.map(w => `<div class='warning'>${w}</div>`).join('');
-            }
-            
-        } catch (error) {
-            programOutput += `<div class='error'>LEXER --> | Fatal error in Program ${i + 1} on line ${lexer.line}:${lexer.column}: ${error}</div>`;
         }
         
-        fullOutput += programOutput;
+        // Handle the last program
+        if (currentOutput.includes('LEXER -->')) {
+            if (!foundEOP) {
+                warnings.push(`LEXER --> | Warning: Program ${programCount} ended without an EOP ($) symbol on line ${lexer.line}:${lexer.column}`);
+            }
+            
+            if (warnings.length > 0) {
+                currentOutput += warnings.map(w => 
+                    `<div style="color: #FFB100; font-weight: bold;">${w}</div>`
+                ).join('');
+            }
+            
+            // Add final program status
+            currentOutput += lexer.getProgramStatus();
+            outputDiv.innerHTML += currentOutput;
+        }
+        
+    } catch (error) {
+        outputDiv.innerHTML += `<div class='error'>LEXER --> | Fatal error in Program ${programCount}: ${error}</div>`;
     }
-    
-    outputDiv.innerHTML = fullOutput;
 }
 
 
