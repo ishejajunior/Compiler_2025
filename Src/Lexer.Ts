@@ -26,6 +26,7 @@ class Lexer {
     currentProgram: number;
     line: number;
     column: number;
+    inString: boolean;
 
     constructor(input: string) {
         this.input = input;
@@ -38,6 +39,7 @@ class Lexer {
         this.currentProgram = 1;
         this.line = 1;
         this.column = 1;
+        this.inString = false;
     }
     error(message: string): void {
         this.errors.push(`LEXER --> | Error: ${message} on line ${this.line}:${this.column}`);
@@ -140,14 +142,18 @@ class Lexer {
 
     string(): Token {
         if (this.currentChar === '"') {
-            this.advance(); // Move past the quote
+            this.advance(); // Move past the opening quote
             const token = new Token('QUOTE', '"');
             token.line = this.line;
             token.column = this.column - 1;
             return token;
         }
         
-        // Handle the character
+        // Handle each character within the string, including spaces
+        if (!this.currentChar) {
+            return new Token('ERROR', null);
+        }
+        
         const char = this.currentChar;
         this.advance();
         const token = new Token('CHAR', char);
@@ -169,7 +175,17 @@ class Lexer {
                 this.skipComment();
                 continue;
             }
-            if (/\s/.test(this.currentChar)) {
+            if (this.inString || this.currentChar === '"') {
+                if (this.currentChar === '"') {
+                    if (!this.inString) {
+                        this.inString = true;
+                    } else {
+                        this.inString = false;
+                    }
+                }
+                return this.string();
+            }
+            if (!this.inString && /\s/.test(this.currentChar)) {
                 this.skipWhitespace();
                 continue;
             }
@@ -183,14 +199,6 @@ class Lexer {
             if (/[0-9]/.test(this.currentChar)) return this.number();
             if (/[a-z]/.test(this.currentChar)) return this.identifier();
             
-            // Modified string handling
-            if (this.currentChar === '"' || 
-                (this.position > 0 && 
-                 this.input[this.position - 1] === '"' && 
-                 !this.input.slice(this.position, this.position + 1).includes('"'))) {
-                return this.string();
-            }
-
             const singleCharTokens: { [key: string]: string } = {
                 '{': 'LBRACE', '}': 'RBRACE', '(': 'LPAREN', ')': 'RPAREN',
                 '+': 'INTOP', '=': 'ASSIGN'
