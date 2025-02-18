@@ -18,6 +18,8 @@ This project implements a recursive descent compiler that translates Alan++ into
 
 ### Installation
 
+- For Grading purposes, Ready to use executable code will be on the main branch.
+
 1. Clone the repository:
    ```bash
    git clone https://github.com/ishejajunior/Compiler_2025
