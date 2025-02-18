@@ -1,0 +1,355 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage[margin=1in]{geometry}
+
+
+
+% Define colors for syntax highlighting
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+
+% Configure code listings
+\lstset{
+    language=TypeScript,
+    backgroundcolor=\color{white},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+
+\title{Judgment Compiler Implementation Documentation}
+\author{Ricky Junior Isheja}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Overview}
+This document describes the implementation of the judgment compiler written in TypeScript. The lexer's function is to process source code from the language of Alan++ and break it down into a sequence of tokens in order, which eventually will be used by the parser. The parser then takes those tokens and analyses if the given tokens make sense according to the syntax of Alan++. After validating the syntax of the given code we handout the Concrete syntax tree (CST) to the Semantic analyzer which will at the end of the day generate  an Abstract syntax tree (AST) that will help us generate machine readable code. 
+
+\section{Lexer}
+
+The lexer's function is to process source code from the language of Alan++ and break it down into a sequence of ordered tokens, which eventually will be used by the parser. We are able to implement this by designing a number of classes that help us define the language as given so we can either accept the given code or reject it. The following classes help us implement the lexical analysis in the judgment compiler:
+
+\subsection{Token Class}
+The \texttt{Token} class represents individual lexical units with the following properties, this is where we initialize the how our tokens will be structured like, for this specific language we only need the type, value and position of the token. This information is what we will be sending to the parser eventually:
+
+\begin{lstlisting}
+class Token {
+    type: string;       // Type of the token (e.g., 'IDENTIFIER', 'NUMBER')
+    value: string | null; // Actual value of the token
+    line: number;       // Line number where token appears
+    column: number;     // Column number where token appears
+}
+\end{lstlisting}
+
+\subsection{Lexer Class}
+The \texttt{Lexer} class is responsible for tokenizing the input string. In other words this is where we define our language and set what is allowed and what isn't so that the lexer can categorize the tokens and give out relevant information to the programmer:
+
+\begin{lstlisting}
+class Lexer {
+    input: string;          // Input source code
+    position: number;       // Current position in input
+    currentChar: string | null; // Current character being processed
+    inComment: boolean;     // Flag for comment processing
+    errors: string[];       // Collection of lexical errors
+    line: number;          // Current line number
+    column: number;        // Current column number
+}
+\end{lstlisting}
+
+
+
+\subsubsection{Comment Handling}
+The lexer supports multi-line comments using \texttt{/* */} syntax:
+
+\begin{lstlisting}
+if (this.currentChar === '/' && this.peek() === '*') {
+    this.advance();
+    this.advance();
+    this.inComment = true;
+    this.skipComment();
+    continue;
+}
+\end{lstlisting}
+
+\subsubsection{Error Collection}
+\begin{lstlisting}
+error(message: string): void {
+    this.errors.push(`LEXER --> | Error: ${message} 
+        on line ${this.line}:${this.column}`);
+    this.advance();
+}
+\end{lstlisting}
+
+\subsubsection{Position Tracking}
+\begin{lstlisting}
+advance(): void {
+    if (this.currentChar === '\n') {
+        this.line++;
+        this.column = 0;
+    }
+    this.position++;
+    this.column++;
+    this.currentChar = this.input[this.position] || null;
+}
+\end{lstlisting}
+
+\subsubsection{Keyword Recognition}
+The lexer implements a longest-match strategy for keywords:
+
+\begin{lstlisting}
+const keywords: { [key: string]: string } = {
+    'print': 'PRINT',
+    'while': 'WHILE',
+    'if': 'IF',
+    'int': 'TYPE',
+    'string': 'TYPE',
+    'boolean': 'TYPE',
+    'true': 'BOOLVAL',
+    'false': 'BOOLVAL'
+};
+\end{lstlisting}
+
+\subsubsection{Token Construction}
+The lexer first classifies the current character to determine the appropriate token type. Based on the character classification, the lexer calls the appropriate method:
+\begin{itemize}
+    \item \texttt{identifier()}: For keywords and identifiers
+    \item \texttt{number()}: For numeric literals
+    \item \texttt{string()}: For string literals
+\end{itemize}
+
+The lexer then maintains line and column information for error reporting debugging and future use.
+
+\subsubsection{Program Separation}
+The lexer supports multiple programs separated by the '\$' symbol we know that we are at the end of the whole entirety of programs when there are no other details after the EOP. If we end the program and there is no EOP sign we give out a warning stating that we are expecting it:
+
+\begin{lstlisting}
+function compile(): void {
+    const programs = sourceCode.split('$')
+        .filter(prog => prog.trim().length > 0);
+    // Process each program separately
+}
+\end{lstlisting}
+
+\section{Artificial Intelligence transcripts}
+\subsection{Lexer AI use}
+While building this project I used the help of cursor and the 3.5 sonnet model. I tried out a couple of scripts and I meta prompted with OpenAI model GPT-4: 
+
+Write a TypeScript lexer that tokenizes source code into different token types. The lexer should include a Token class to store token type, value, line, and column. Implement a Lexer class with methods to: 
+\begin{itemize}
+    \item \ Track the current position in the input, line, and column numbers.
+    \item \ Handle whitespace, comments (/.../), and strings (enclosed in double quotes).
+    \item \ Recognize keywords (print, while, if, int, string, boolean, true, false).
+    \item \ Identify identifiers, digits, and special characters ({}, (), +, =, ==, !=).
+    \item \ Report errors for invalid characters.
+    \item \ Format token output and provide a program status summary.
+\end{itemize}
+
+refer to the language attached and Include a compile() function that integrates the lexer with an HTML interface, reading source code from a textarea and displaying tokenized output in a div.
+
+
+The output: 
+\begin{lstlisting}
+class Token {
+    type: string;
+    value: string | null;
+
+    constructor(type: string, value: string | null) {
+        this.type = type;
+        this.value = value;
+    }
+}
+
+class Lexer {
+    input: string;
+    position: number;
+    currentChar: string | null;
+    inComment: boolean;
+    errors: string[];
+    programCount: number;
+    foundStartBrace: boolean;
+
+    constructor(input: string) {
+        this.input = input;
+        this.position = 0;
+        this.currentChar = this.input[0] || null;
+        this.inComment = false;
+        this.errors = [];
+        this.programCount = 1;
+        this.foundStartBrace = false;
+    }
+
+    error(message: string): void {
+        this.errors.push(`Error at position ${this.position}: ${message}`);
+        this.advance();
+    }
+
+    advance(): void {
+        this.position++;
+        this.currentChar = this.position > this.input.length - 1 ? null : this.input[this.position];
+    }
+
+    peek(): string | null {
+        return this.position + 1 > this.input.length - 1 ? null : this.input[this.position + 1];
+    }
+
+    skipWhitespace(): void {
+        while (this.currentChar && /\s/.test(this.currentChar)) {
+            this.advance();
+        }
+    }
+
+    skipComment(): void {
+        while (this.currentChar) {
+            if (this.currentChar === '*' && this.peek() === '/') {
+                this.advance();
+                this.advance();
+                this.inComment = false;
+                break;
+            }
+            this.advance();
+        }
+    }
+
+    identifier(): Token {
+        let result = '';
+        while (this.currentChar && /[a-z]/.test(this.currentChar)) {
+            result += this.currentChar;
+            this.advance();
+        }
+        
+        const keywords: { [key: string]: string } = {
+            'print': 'PRINT', 'while': 'WHILE', 'if': 'IF',
+            'int': 'TYPE', 'string': 'TYPE', 'boolean': 'TYPE',
+            'true': 'BOOLVAL', 'false': 'BOOLVAL'
+        };
+
+        return new Token(keywords[result] || 'ID', result);
+    }
+
+    number(): Token {
+        let result = '';
+        while (this.currentChar && /[0-9]/.test(this.currentChar)) {
+            result += this.currentChar;
+            this.advance();
+        }
+        return new Token('DIGIT', result);
+    }
+
+    string(): Token {
+        let result = '';
+        this.advance();
+        while (this.currentChar && this.currentChar !== '"') {
+            result += this.currentChar;
+            this.advance();
+        }
+        if (this.currentChar === '"') {
+            this.advance();
+            return new Token('STRING', result);
+        }
+        this.error('Unterminated string literal');
+        return new Token('ERROR', '');
+    }
+
+    getNextToken(): Token {
+        while (this.currentChar) {
+            if (this.currentChar === '/' && this.peek() === '*') {
+                this.advance();
+                this.advance();
+                this.inComment = true;
+                this.skipComment();
+                continue;
+            }
+            if (this.inComment) {
+                this.skipComment();
+                continue;
+            }
+            if (/\s/.test(this.currentChar)) {
+                this.skipWhitespace();
+                continue;
+            }
+            if (this.currentChar === '$') {
+                this.advance();
+                return new Token('EOP', '$');
+            }
+            if (/[0-9]/.test(this.currentChar)) return this.number();
+            if (/[a-z]/.test(this.currentChar)) return this.identifier();
+            if (this.currentChar === '"') return this.string();
+
+            const singleCharTokens: { [key: string]: string } = {
+                '{': 'LBRACE', '}': 'RBRACE', '(': 'LPAREN', ')': 'RPAREN',
+                '+': 'INTOP', '=': 'ASSIGN'
+            };
+            if (this.currentChar in singleCharTokens) {
+                const token = new Token(singleCharTokens[this.currentChar], this.currentChar);
+                this.advance();
+                return token;
+            }
+            
+            if (this.currentChar === '!') {
+                this.advance();
+                if (this.currentChar === '=') {
+                    this.advance();
+                    return new Token('BOOLOP', '!=');
+                }
+                this.error("Expected '=' after '!'");
+                return new Token('ERROR', '!');
+            }
+
+            this.error(`Invalid character '${this.currentChar}'`);
+        }
+        return new Token('EOF', null);
+    }
+}
+
+function compile(): void {
+    const sourceCode = (document.getElementById('sourceCode') as HTMLTextAreaElement).value;
+    const outputDiv = document.getElementById('output') as HTMLDivElement;
+    outputDiv.innerHTML = '';
+    
+    const lexer = new Lexer(sourceCode);
+    let token: Token;
+    let output = `<h3>Program 1</h3><table><tr><th>Token Type</th><th>Value</th></tr>`;
+    let warnings: string[] = [];
+    let foundEOP = false;
+    
+    while ((token = lexer.getNextToken()).type !== 'EOF') {
+        if (token.type === 'EOP') {
+            foundEOP = true;
+        }
+        output += `<tr><td>${token.type}</td><td>${token.value}</td></tr>`;
+    }
+    
+    output += '</table>';
+    if (!foundEOP) warnings.push('Warning: Program must end with "$"');
+    if (warnings.length > 0) output += warnings.map(w => `<div class='warning'>${w}</div>`).join('');
+    if (lexer.errors.length > 0) output += lexer.errors.map(e => `<div class='error'>${e}</div>`).join('');
+    
+    outputDiv.innerHTML = output;
+}
+
+\end{lstlisting}
+
+
+\end{document}
