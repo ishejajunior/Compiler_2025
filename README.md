@@ -18,17 +18,18 @@ This project implements a recursive descent compiler that translates Alan++ into
 
 ### Installation
 
-- For Grading purposes, Ready to use executable code will be on the main branch.
-
 1. Clone the repository:
    ```bash
    git clone https://github.com/ishejajunior/Compiler_2025
    cd Compiler_2025
    ```
 2. Compile the TypeScript code:
+
    ```bash
    tsc
    ```
+
+   - For Grading purposes, Ready to use executable code will be on the main branch.
 
 ## Project Structure
 
