@@ -20,7 +20,7 @@ This project implements a recursive descent compiler that translates Alan++ into
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/Compiler_2025.git
+   git clone https://github.com/ishejajunior/Compiler_2025
    cd Compiler_2025
    ```
 2. Compile the TypeScript code:
@@ -57,15 +57,13 @@ This project implements a recursive descent compiler that translates Alan++ into
 
 ### Additional Resources
 
-- `labs/`: Course laboratory assignments
+- `labs/`: Labs from crafting compiler book
 - `Documentation/`: Project documentation and notes
-  - Implementation details
+  - Implementation details in Latex
   - AI assistance documentation
-  - LaTeX documentation
 
 ## License
 
 MIT License
 
 Copyright (c) 2025 ishejajunior
-
