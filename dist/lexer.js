@@ -121,15 +121,24 @@ class Lexer {
             token.column = this.column - 1;
             return token;
         }
-        // Handle each character within the string, including spaces
+        // Handle each character within the string
         if (!this.currentChar) {
             return new Token('ERROR', null);
         }
-        const char = this.currentChar;
-        this.advance();
-        const token = new Token('CHAR', char);
+        // Only allow valid characters in strings
+        if (/[a-z]/.test(this.currentChar) || /[0-9]/.test(this.currentChar) || this.currentChar === ' ') {
+            const char = this.currentChar;
+            this.advance();
+            const token = new Token('CHAR', char);
+            token.line = this.line;
+            token.column = this.column - 1;
+            return token;
+        }
+        // Invalid character in string
+        this.error(`Invalid character '${this.currentChar}' in string`);
+        const token = new Token('ERROR', this.currentChar);
         token.line = this.line;
-        token.column = this.column - 1;
+        token.column = this.column;
         return token;
     }
     getNextToken() {
@@ -198,15 +207,14 @@ class Lexer {
                 token.column = this.column;
                 return token;
             }
-            // Modified == operator handling
+            // Add support for == operator
             if (this.currentChar === '=') {
-                const nextChar = this.peek();
                 this.advance();
-                if (nextChar === '=') {
+                if (this.currentChar === '=') {
                     this.advance();
                     const token = new Token('BOOLOP', '==');
                     token.line = this.line;
-                    token.column = this.column - 1;
+                    token.column = this.column - 2;
                     return token;
                 }
                 // Single = is an assignment operator
