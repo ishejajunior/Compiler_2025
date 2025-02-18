@@ -16,10 +16,6 @@ This project implements a recursive descent compiler that translates Alan++ into
 
 ## Getting Started
 
-### Prerequisites
-
-- TypeScript installed globally (`npm install -g typescript`)
-
 ### Installation
 
 1. Clone the repository:
