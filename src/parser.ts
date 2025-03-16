@@ -229,4 +229,55 @@ class Parser {
         return printNode;
     }
 
-    
+    private parseVarDecl(): TreeNode | null {
+        this.debug('VarDecl');
+        const varDeclNode = new TreeNode('VarDecl');
+        
+        // type Id
+        const typeToken = this.getCurrentToken();
+        this.advance(); // consume type
+        varDeclNode.addChild(new TreeNode('Type', typeToken.value || ''));
+        
+        // Check if the next token is an ID
+        if (this.getCurrentToken().type !== 'ID') {
+            this.addError(`Expected identifier after type '${typeToken.value}'`);
+            return null;
+        }
+        
+        // Consume the ID
+        const idToken = this.getCurrentToken();
+        this.advance();
+        varDeclNode.addChild(new TreeNode('Id', idToken.value || ''));
+        
+        return varDeclNode;
+    }
+
+    private parseAssignmentStatement(): TreeNode | null {
+        this.debug('AssignmentStatement');
+        const assignNode = new TreeNode('AssignmentStatement');
+        
+        // Id = Expr
+        if (this.getCurrentToken().type !== 'ID') {
+            this.addError("Expected identifier at start of assignment");
+            return null;
+        }
+        
+        const idToken = this.getCurrentToken();
+        this.advance(); // consume ID
+        assignNode.addChild(new TreeNode('Id', idToken.value || ''));
+        
+        if (this.getCurrentToken().type !== 'ASSIGN') {
+            this.addError(`Expected '=' after identifier '${idToken.value}'`);
+            return null;
+        }
+        this.advance(); // consume =
+        
+        const exprNode = this.parseExpr();
+        if (!exprNode) {
+            this.addError(`Expected expression after '=' in assignment to '${idToken.value}'`);
+            return null;
+        }
+        assignNode.addChild(exprNode);
+        
+        return assignNode;
+    }
