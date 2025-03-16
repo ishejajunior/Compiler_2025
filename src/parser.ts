@@ -281,3 +281,43 @@ class Parser {
         
         return assignNode;
     }
+
+    private parseWhileStatement(): TreeNode | null {
+        const whileNode = new TreeNode('WhileStatement');
+        
+        // while BooleanExpr Block
+        this.advance(); // consume 'while'
+        const boolExprNode = this.parseBooleanExpr();
+        if (!boolExprNode) {
+            this.addError("Expected boolean expression after 'while'");
+            return null;
+        }
+        whileNode.addChild(boolExprNode);
+        
+        const blockNode = this.parseBlock();
+        if (!blockNode) return null;
+        whileNode.addChild(blockNode);
+        
+        return whileNode;
+    }
+
+    private parseIfStatement(): TreeNode | null {
+        const ifNode = new TreeNode('IfStatement');
+        
+        // if BooleanExpr Block
+        this.advance(); // consume 'if'
+        const boolExprNode = this.parseBooleanExpr();
+        if (!boolExprNode) {
+            this.addError("Expected boolean expression after 'if'");
+            return null;
+        }
+        ifNode.addChild(boolExprNode);
+        
+        const blockNode = this.parseBlock();
+        if (!blockNode) return null;
+        ifNode.addChild(blockNode);
+        
+        return ifNode;
+    }
+
+    
