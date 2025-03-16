@@ -320,4 +320,90 @@ class Parser {
         return ifNode;
     }
 
-    
+    private parseExpr(): TreeNode | null {
+        this.debug('Expression');
+        const token = this.getCurrentToken();
+        this.debug(`Current token: ${token.type} [${token.value}]`);
+        
+        if (token.type === 'DIGIT') {
+            this.debug('Found DIGIT (IntExpr)');
+            return this.parseIntExpr();
+        }
+        if (token.type === 'QUOTE') {
+            this.debug('Found QUOTE (StringExpr)');
+            return this.parseStringExpr();
+        }
+        if (token.type === 'LPAREN' || token.type === 'BOOLVAL') {
+            this.debug('Found LPAREN or BOOLVAL (BooleanExpr)');
+            return this.parseBooleanExpr();
+        }
+        if (token.type === 'ID') {
+            this.debug('Found ID');
+            this.advance();
+            this.debug('ID parsed successfully');
+            return new TreeNode('Id', token.value || '');
+        }
+        
+        this.debug('No valid expression found');
+        return null;
+    }
+
+    private parseIntExpr(): TreeNode | null {
+        const intExprNode = new TreeNode('IntExpr');
+        
+        // Get the digit
+        const digitToken = this.getCurrentToken();
+        this.advance();
+        intExprNode.addChild(new TreeNode('Digit', digitToken.value || ''));
+        
+        // Check for intop
+        if (this.getCurrentToken().type === 'INTOP') {
+            this.advance();
+            const exprNode = this.parseExpr();
+            if (!exprNode) return null;
+            intExprNode.addChild(exprNode);
+        }
+        
+        return intExprNode;
+    }
+
+    private parseStringExpr(): TreeNode | null {
+        const stringExprNode = new TreeNode('StringExpr');
+        
+        this.advance(); // consume opening quote
+        while (this.getCurrentToken().type === 'CHAR' || this.getCurrentToken().type === 'SPACE') {
+            stringExprNode.addChild(new TreeNode('Char', this.getCurrentToken().value || ''));
+            this.advance();
+        }
+        
+        if (!this.expect('QUOTE', "Expected closing quote")) return null;
+        return stringExprNode;
+    }
+
+    private parseBooleanExpr(): TreeNode | null {
+        const boolExprNode = new TreeNode('BooleanExpr');
+        
+        if (this.getCurrentToken().type === 'BOOLVAL') {
+            boolExprNode.addChild(new TreeNode('BoolVal', this.getCurrentToken().value || ''));
+            this.advance();
+            return boolExprNode;
+        }
+        
+        if (!this.expect('LPAREN', "Expected '(' in boolean expression")) return null;
+        const expr1 = this.parseExpr();
+        if (!expr1) return null;
+        boolExprNode.addChild(expr1);
+        
+        if (!this.match('BOOLOP')) {
+            this.addError("Expected boolean operator");
+            return null;
+        }
+        boolExprNode.addChild(new TreeNode('BoolOp', this.tokens[this.currentTokenIndex - 1].value || ''));
+        
+        const expr2 = this.parseExpr();
+        if (!expr2) return null;
+        boolExprNode.addChild(expr2);
+        
+        if (!this.expect('RPAREN', "Expected ')'")) return null;
+        return boolExprNode;
+    }
