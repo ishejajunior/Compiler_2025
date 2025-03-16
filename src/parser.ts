@@ -61,4 +61,22 @@ class Parser {
         this.errors.push(`PARSER --> Error: ${message} at ${position}`);
         this.debug(`ERROR: ${message} at ${position}`);
     }
+
+    private match(expectedType: string): boolean {
+        const token = this.getCurrentToken();
+        if (token && token.type === expectedType) {
+            this.advance();
+            return true;
+        }
+        return false;
+    }
+
+    private expect(expectedType: string, errorMessage: string): boolean {
+        if (this.match(expectedType)) {
+            return true;
+        }
+        this.addError(errorMessage);
+        return false;
+    }
+
     
