@@ -418,7 +418,18 @@ class Parser {
 
     // Helper to visualize the CST
     public static visualizeTree(node: TreeNode, indent: string = ''): string {
-        let result = `${indent}${node.name}${node.value ? ` [${node.value}]` : ''}\n`;
+        const nodeColor = '#FFA500'; // Orange for node names
+        const valueColor = '#6A8759'; // Green for values
+        const indentColor = '#606366'; // Grey for indent lines
+
+        let result = `<span style="color: ${indentColor}">${indent}</span>`;
+        result += `<span style="color: ${nodeColor}">${node.name}</span>`;
+        
+        if (node.value) {
+            result += `<span style="color: ${valueColor}"> [${node.value}]</span>`;
+        }
+        result += '\n';
+
         for (const child of node.children) {
             result += Parser.visualizeTree(child, indent + '  ');
         }
@@ -494,7 +505,17 @@ function compile(): void {
                 // Display successful parse and CST
                 fullOutput += `<div style="color: #4CAF50; font-weight: bold;">Parsing completed successfully</div>`;
                 fullOutput += `<h4>Concrete Syntax Tree</h4>`;
-                fullOutput += `<pre style="background-color: #f5f5f5; padding: 10px; border-radius: 5px;">${Parser.visualizeTree(cst)}</pre>`;
+                fullOutput += `<pre style="
+                    background-color: #2b2b2b;
+                    color: #a9b7c6;
+                    padding: 15px;
+                    border-radius: 5px;
+                    font-family: 'Consolas', monospace;
+                    border: 1px solid #3c3f41;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                    overflow: auto;
+                    max-height: 500px;
+                ">${Parser.visualizeTree(cst)}</pre>`;
             }
 
         } catch (error) {
