@@ -436,3 +436,73 @@ class Parser {
     }
 }
 
+function compile(): void {
+    const sourceCode = (document.getElementById('sourceCode') as HTMLTextAreaElement).value;
+    const outputDiv = document.getElementById('output') as HTMLDivElement;
+    outputDiv.innerHTML = '';
+    
+    // Split source code into programs by '$'
+    const programs = sourceCode.split('$').filter(prog => prog.trim().length > 0);
+    let fullOutput = '';
+    
+    for (let i = 0; i < programs.length; i++) {
+        const programNum = i + 1;
+        fullOutput += `<h3>Program ${programNum}</h3>`;
+        fullOutput += `<h4>Lexical Analysis</h4>`;
+        
+        // Lexical Analysis
+        const lexer = new Lexer(programs[i] + '$');
+        let tokens: Token[] = [];
+        
+        try {
+            let token: Token;
+            while ((token = lexer.getNextToken()).type !== 'EOF') {
+                tokens.push(token);
+                fullOutput += `<div>${lexer.formatToken(token.type, token.value)}</div>`;
+                
+                if (lexer.currentErrorMessage) {
+                    fullOutput += lexer.currentErrorMessage;
+                    lexer.currentErrorMessage = '';
+                }
+            }
+
+            // Check if lexical analysis failed
+            if (lexer.errors.length > 0) {
+                fullOutput += `<div style="color: red; font-weight: bold;">Lexical analysis failed with ${lexer.errors.length} error(s)</div>`;
+                fullOutput += '<hr>';
+                continue; // Move to next program
+            }
+
+            // If lexing succeeded, proceed with parsing
+            fullOutput += `<div style="color: #4CAF50; font-weight: bold;">Lexical analysis completed successfully</div>`;
+            fullOutput += `<h4>Parsing</h4>`;
+
+            const parser = new Parser(tokens);
+            parser.enableDebug((msg) => {
+                fullOutput += `<div style="color: #666; margin-left: 20px;">PARSER --> Parsing ${msg}</div>`;
+            });
+            
+            const cst = parser.parseProgram();
+            
+            if (parser.getErrors().length > 0) {
+                // Display parsing errors
+                fullOutput += parser.getErrors().map(error => 
+                    `<div style="color: red; font-weight: bold;">${error}</div>`
+                ).join('');
+                fullOutput += `<div style="color: red; font-weight: bold;">Parsing failed</div>`;
+            } else if (cst) {
+                // Display successful parse and CST
+                fullOutput += `<div style="color: #4CAF50; font-weight: bold;">Parsing completed successfully</div>`;
+                fullOutput += `<h4>Concrete Syntax Tree</h4>`;
+                fullOutput += `<pre style="background-color: #f5f5f5; padding: 10px; border-radius: 5px;">${Parser.visualizeTree(cst)}</pre>`;
+            }
+
+        } catch (error) {
+            fullOutput += `<div style="color: red; font-weight: bold;">Compiler Error in Program ${programNum}: ${error}</div>`;
+        }
+        
+        fullOutput += '<hr>';
+    }
+    
+    outputDiv.innerHTML = fullOutput;
+}
