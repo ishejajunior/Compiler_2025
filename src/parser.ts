@@ -92,9 +92,9 @@ class Parser {
             this.debug('Block parsed successfully');
             
             this.debug('Expecting EOP ($)');
-            if (!this.match('EOP')) {
-                this.addWarning("Program ended without end of program symbol '$'");
-                // Don't return null, just add warning
+            if (!this.expect('EOP', "Expected end of program symbol '$'")) {
+                this.debug('Failed to find EOP');
+                return null;
             }
             this.debug('Found EOP');
             
@@ -412,10 +412,6 @@ class Parser {
         return this.errors;
     }
 
-    getWarnings(): string[] {
-        return this.warnings;
-    }
-
     getCst(): TreeNode | null {
         return this.cst;
     }
@@ -448,13 +444,6 @@ class Parser {
         if (this.debugCallback) {
             this.debugCallback(message);
         }
-    }
-
-    private addWarning(message: string): void {
-        const token = this.getCurrentToken();
-        const position = token ? `line ${token.line}:${token.column}` : 'end of file';
-        this.warnings.push(`PARSER --> Warning: ${message} at ${position}`);
-        this.debug(`WARNING: ${message} at ${position}`);
     }
 }
 
@@ -505,13 +494,6 @@ function compile(): void {
             });
             
             const cst = parser.parseProgram();
-            
-            // Display any warnings first
-            if (parser.getWarnings().length > 0) {
-                fullOutput += parser.getWarnings().map(warning => 
-                    `<div style="color: #FFB100; font-weight: bold;">${warning}</div>`
-                ).join('');
-            }
             
             if (parser.getErrors().length > 0) {
                 // Display parsing errors
