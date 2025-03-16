@@ -15,3 +15,19 @@ class TreeNode {
     }
 }
 
+class Parser {
+    private tokens: Token[];
+    private currentTokenIndex: number;
+    private errors: string[];
+    private warnings: string[];
+    private cst: TreeNode | null;
+    private debugCallback?: (message: string) => void;
+
+    constructor(tokens: Token[]) {
+        this.tokens = tokens;
+        this.currentTokenIndex = 0;
+        this.errors = [];
+        this.warnings = [];
+        this.cst = null;
+    }
+    
