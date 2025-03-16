@@ -182,7 +182,7 @@ class Lexer {
                 return this.identifier();
             const singleCharTokens = {
                 '{': 'LBRACE', '}': 'RBRACE', '(': 'LPAREN', ')': 'RPAREN',
-                '+': 'INTOP', '=': 'ASSIGN'
+                '+': 'INTOP'
             };
             if (this.currentChar in singleCharTokens) {
                 const token = new Token(singleCharTokens[this.currentChar], this.currentChar);
@@ -207,10 +207,11 @@ class Lexer {
                 token.column = this.column;
                 return token;
             }
-            // Add support for == operator
+            // Modified == operator handling
             if (this.currentChar === '=') {
+                const nextChar = this.peek();
                 this.advance();
-                if (this.currentChar === '=') {
+                if (nextChar === '=') {
                     this.advance();
                     const token = new Token('BOOLOP', '==');
                     token.line = this.line;
