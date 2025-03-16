@@ -407,3 +407,32 @@ class Parser {
         if (!this.expect('RPAREN', "Expected ')'")) return null;
         return boolExprNode;
     }
+
+    getErrors(): string[] {
+        return this.errors;
+    }
+
+    getCst(): TreeNode | null {
+        return this.cst;
+    }
+
+    // Helper to visualize the CST
+    public static visualizeTree(node: TreeNode, indent: string = ''): string {
+        let result = `${indent}${node.name}${node.value ? ` [${node.value}]` : ''}\n`;
+        for (const child of node.children) {
+            result += Parser.visualizeTree(child, indent + '  ');
+        }
+        return result;
+    }
+
+    public enableDebug(callback: (message: string) => void): void {
+        this.debugCallback = callback;
+    }
+
+    private debug(message: string): void {
+        if (this.debugCallback) {
+            this.debugCallback(message);
+        }
+    }
+}
+
