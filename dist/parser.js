@@ -1,4 +1,4 @@
-// Node class for our Concrete Syntax Tree (CST)
+// Node class for the CST
 class TreeNode {
     constructor(name, value) {
         this.name = name;
@@ -341,8 +341,6 @@ class Parser {
             return null;
         return boolExprNode;
     }
-    // More parsing methods to be continued...
-    // Add these methods to the Parser class
     getErrors() {
         return this.errors;
     }
