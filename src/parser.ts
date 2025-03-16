@@ -164,3 +164,69 @@ class Parser {
         this.debug('No more statements found (ε production)');
         return stmtListNode;
     }
+
+    private parseStatement(): TreeNode | null {
+        this.debug('Statement');
+        const token = this.getCurrentToken();
+        this.debug(`Current token: ${token.type} [${token.value}]`);
+        
+        switch (token.type) {
+            case 'PRINT':
+                this.debug('Found PRINT statement');
+                return this.parsePrintStatement();
+            case 'TYPE':
+                this.debug('Found TYPE declaration');
+                return this.parseVarDecl();
+            case 'ID':
+                this.debug('Found ID (assignment)');
+                return this.parseAssignmentStatement();
+            case 'WHILE':
+                this.debug('Found WHILE statement');
+                return this.parseWhileStatement();
+            case 'IF':
+                this.debug('Found IF statement');
+                return this.parseIfStatement();
+            case 'LBRACE':
+                this.debug('Found nested block');
+                return this.parseBlock();
+            default:
+                this.debug('No valid statement found');
+                return null;
+        }
+    }
+
+    private parsePrintStatement(): TreeNode | null {
+        this.debug('PrintStatement');
+        const printNode = new TreeNode('PrintStatement');
+        
+        // print ( Expr )
+        this.advance(); // consume 'print'
+        this.debug('Expecting LPAREN');
+        if (!this.expect('LPAREN', "Expected '(' after 'print'")) {
+            this.debug('Failed to find LPAREN');
+            return null;
+        }
+        this.debug('Found LPAREN');
+        
+        this.debug('Attempting to parse expression');
+        const exprNode = this.parseExpr();
+        if (!exprNode) {
+            this.debug('Failed to parse expression');
+            this.addError("Expected expression in print statement");
+            return null;
+        }
+        this.debug('Expression parsed successfully');
+        printNode.addChild(exprNode);
+        
+        this.debug('Expecting RPAREN');
+        if (!this.expect('RPAREN', "Expected ')' after expression")) {
+            this.debug('Failed to find RPAREN');
+            return null;
+        }
+        this.debug('Found RPAREN');
+        this.debug('PrintStatement parsed successfully');
+        
+        return printNode;
+    }
+
+    
