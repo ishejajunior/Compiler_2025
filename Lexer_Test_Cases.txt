@@ -1,0 +1,129 @@
+/*Alan++ Test Cases*/
+
+/* 1. Basic Print Statement */
+{
+    print("Hello World")
+}$
+
+
+/* 2. Variable Declaration and Assignment */
+{
+    int x
+    x = 5
+    print(x)
+}$
+
+
+/* 3. Multiple Variable Operations */
+{
+    int a
+    int b
+    a = 1
+    b = 2
+    print(a + b)
+}$
+
+
+/* 4. Boolean Operations */
+{
+    boolean isTrue
+    isTrue = true
+    if (isTrue == true) {
+        print("Condition is true")
+    }
+}$
+
+
+/* 5. While Loop */
+{
+    int counter
+    counter = 0
+    while (counter == 0) {
+        print("In loop")
+        counter = 1
+    }
+}$
+
+
+/* 6. Nested Blocks */
+{
+    int x
+    x = 1
+    {
+        int y
+        y = 2
+        print(y)
+    }
+    print(x)
+}$
+
+
+/* 7. String Operations */
+{
+    string message
+    message = "Hello"
+    print(message)
+}$
+
+
+/* 8. Complex Nested Structure */
+{
+    int x
+    x = 5
+    if (x == 5) {
+        string msg
+        msg = "x is five"
+        print(msg)
+        while (x == 5) {
+            print("in while loop")
+            x = 6
+        }
+    }
+}$
+
+
+/* 9. Multiple Data Types */
+{
+    int num
+    string text
+    boolean flag
+    num = 42
+    text = "Test"
+    flag = true
+    print(num)
+    print(text)
+}$
+
+
+/* 10. Error Cases (Should Fail) */
+/* Missing $ at end */
+{
+    print("Hello")
+}
+
+/* Invalid operator */
+{
+    int x
+    x = 5 * 3
+}$
+
+/* Undeclared variable */
+{
+    print(y)
+}$
+
+/* Invalid boolean operation */
+{
+    boolean x
+    x = 5 > 3
+}$
+
+{
+    print (0)
+    print ("")
+    print ("Hello")
+    print ("inta/* is not*/ int")
+    print ("$")
+}$
+
+
