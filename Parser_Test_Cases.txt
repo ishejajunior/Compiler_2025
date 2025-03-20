@@ -1,0 +1,281 @@
+1. Empty program
+
+{ }$
+
+2. Simple variable declarations
+
+{
+    int a
+    string b
+    boolean c
+}$
+
+3. Variable assignment
+
+{
+    int a
+    a = 5
+}$
+
+4. Print statements with different expressions
+
+{
+    print(5)
+    print("hello")
+    print(true)
+}$
+
+5. Nested blocks
+
+{
+    int a
+    a = 5
+    {
+        int b
+        b = 7
+        print(b)
+    }
+    print(a)
+}$
+
+6. If statement
+
+{
+    int a
+    a = 5
+    if (a == 5) {
+        print("equal")
+    }
+}$
+
+7. While loop
+
+{
+    int a
+    a = 5
+    while (a != 0) {
+        print(a)
+        a = 0
+    }
+}$
+
+8. Complex boolean expressions
+
+{
+    int a
+    int b
+    a = 5
+    b = 7
+    if ((a == 5) == (b == 7)) {
+        print("both true")
+    }
+}$
+
+9. Integer expression with addition
+
+{
+    int sum
+    sum = 2 + 3
+    print(sum)
+}$
+
+10. String with spaces
+
+{
+    string msg
+    msg = "hello world"
+    print(msg)
+}$
+
+11. Multiple statements of the same type
+
+{
+    int a
+    int b
+    int c
+    a = 1
+    b = 2
+    c = 3
+    print(a)
+    print(b)
+    print(c)
+}$
+
+12. Deeply nested blocks
+
+{
+    int a
+    a = 1
+    {
+        int b
+        b = 2
+        {
+            int c
+            c = 3
+            print(c)
+        }
+        print(b)
+    }
+    print(a)
+}$
+
+13. Nested if statements
+
+{
+    int a
+    a = 5
+    if (a == 5) {
+        if (true) {
+            print("nested")
+        }
+    }
+}$
+
+14. Nested while loops
+
+{
+    int a
+    int b
+    a = 2
+    b = 2
+    while (a != 0) {
+        while (b != 0) {
+            print("loop")
+            b = 0
+        }
+        a = 0
+    }
+}$
+
+15. Missing closing brace
+
+{
+    int a
+    a = 5
+$
+
+16. Missing opening brace
+
+int a
+a = 5
+}$
+
+
+17. **Invalid type**
+
+{
+float a
+}$
+
+18. **Missing EOP symbol**
+
+{
+int a
+}
+
+19. **Invalid assignment (type mismatch or checking)**
+
+{
+int a
+a = "string"
+}$
+
+
+20. **Missing parentheses in print**
+
+{
+print 5)
+}$
+
+
+21. **Incomplete boolean expression**
+
+{
+if (a == ) {
+print("bad")
+}
+}$
+
+
+22. **Invalid variable usage (undeclared)**
+
+{
+print(x)
+}$
+
+23. **Invalid boolean operator**
+
+{
+if (5 > 3) {
+print("bad")
+}
+}$
+
+
+24. **Invalid integer operation**
+
+{
+int a
+a = 5 * 3
+}$
+
+
+25. **Misplaced statement**
+
+print(5)
+{
+int a
+}$
+
+
+26. **Comment handling**
+
+{
+int a /* This is a comment /
+a = 5
+/ Multiple
+line
+comment */
+print(a)
+}$
+
+
+27. **Empty string**
+
+{
+string s
+s = ""
+print(s)
+}$
+
+
+28. **Multiple programs in one file**
+
+{
+int a
+a = 5
+print(a)
+}$
+{
+string s
+s = "second program"
+print(s)
+}$
+
+29. **Boolean value assignment**
+
+{
+boolean flag
+flag = true
+print(flag)
+}$
+
+30. **Complex nested expression**
+
+{
+int a
+a = 1 + 2 + 3 + 4
+if ((a == 10) == false) {
+print("not ten")
+}
+}$
