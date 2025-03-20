@@ -160,7 +160,6 @@ class Parser {
             return stmtListNode;
         }
         
-        // Empty statement list is valid (ε production)
         this.debug('No more statements found (ε production)');
         return stmtListNode;
     }
