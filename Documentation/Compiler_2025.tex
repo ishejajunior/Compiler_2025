@@ -1,0 +1,426 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage[margin=1in]{geometry}
+
+
+
+% Define colors for syntax highlighting
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+
+% Configure code listings
+\lstset{
+    language=TypeScript,
+    backgroundcolor=\color{white},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+
+\title{Judgment Compiler Implementation Documentation}
+\author{Ricky Junior Isheja}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Overview}
+This document describes the implementation of the judgment compiler written in TypeScript. The lexer's function is to process source code from the language of Alan++ and break it down into a sequence of tokens in order, which eventually will be used by the parser. The parser then takes those tokens and analyses if the given tokens make sense according to the syntax of Alan++. After validating the syntax of the given code we handout the Concrete syntax tree (CST) to the Semantic analyzer which will at the end of the day generate  an Abstract syntax tree (AST) that will help us generate machine readable code. 
+
+\section{Lexer}
+
+The lexer's function is to process source code from the language of Alan++ and break it down into a sequence of ordered tokens, which eventually will be used by the parser. We are able to implement this by designing a number of classes that help us define the language as given so we can either accept the given code or reject it. The following classes help us implement the lexical analysis in the judgment compiler:
+
+\subsection{Token Class}
+The \texttt{Token} class represents individual lexical units with the following properties, this is where we initialize the how our tokens will be structured like, for this specific language we only need the type, value and position of the token. This information is what we will be sending to the parser eventually:
+
+\begin{lstlisting}
+class Token {
+    type: string;       // Type of the token (e.g., 'IDENTIFIER', 'NUMBER')
+    value: string | null; // Actual value of the token
+    line: number;       // Line number where token appears
+    column: number;     // Column number where token appears
+}
+\end{lstlisting}
+
+\subsection{Lexer Class}
+The \texttt{Lexer} class is responsible for tokenizing the input string. In other words this is where we define our language and set what is allowed and what isn't so that the lexer can categorize the tokens and give out relevant information to the programmer:
+
+\begin{lstlisting}
+class Lexer {
+    input: string;          // Input source code
+    position: number;       // Current position in input
+    currentChar: string | null; // Current character being processed
+    inComment: boolean;     // Flag for comment processing
+    errors: string[];       // Collection of lexical errors
+    line: number;          // Current line number
+    column: number;        // Current column number
+}
+\end{lstlisting}
+
+
+
+\subsubsection{Comment Handling}
+The lexer supports multi-line comments using \texttt{/* */} syntax:
+
+\begin{lstlisting}
+if (this.currentChar === '/' && this.peek() === '*') {
+    this.advance();
+    this.advance();
+    this.inComment = true;
+    this.skipComment();
+    continue;
+}
+\end{lstlisting}
+
+\subsubsection{Error Collection}
+\begin{lstlisting}
+error(message: string): void {
+    this.errors.push(`LEXER --> | Error: ${message} 
+        on line ${this.line}:${this.column}`);
+    this.advance();
+}
+\end{lstlisting}
+
+\subsubsection{Position Tracking}
+\begin{lstlisting}
+advance(): void {
+    if (this.currentChar === '\n') {
+        this.line++;
+        this.column = 0;
+    }
+    this.position++;
+    this.column++;
+    this.currentChar = this.input[this.position] || null;
+}
+\end{lstlisting}
+
+\subsubsection{Keyword Recognition}
+The lexer implements a longest-match strategy for keywords:
+
+\begin{lstlisting}
+const keywords: { [key: string]: string } = {
+    'print': 'PRINT',
+    'while': 'WHILE',
+    'if': 'IF',
+    'int': 'TYPE',
+    'string': 'TYPE',
+    'boolean': 'TYPE',
+    'true': 'BOOLVAL',
+    'false': 'BOOLVAL'
+};
+\end{lstlisting}
+
+\subsubsection{Token Construction}
+The lexer first classifies the current character to determine the appropriate token type. Based on the character classification, the lexer calls the appropriate method:
+\begin{itemize}
+    \item \texttt{identifier()}: For keywords and identifiers
+    \item \texttt{number()}: For numeric literals
+    \item \texttt{string()}: For string literals
+\end{itemize}
+
+The lexer then maintains line and column information for error reporting debugging and future use.
+
+\subsubsection{Program Separation}
+The lexer supports multiple programs separated by the '\$' symbol we know that we are at the end of the whole entirety of programs when there are no other details after the EOP. If we end the program and there is no EOP sign we give out a warning stating that we are expecting it:
+
+\begin{lstlisting}
+function compile(): void {
+    const programs = sourceCode.split('$')
+        .filter(prog => prog.trim().length > 0);
+    // Process each program separately
+}
+\end{lstlisting}
+
+\section{Parser}
+
+The parser is responsible for analyzing the sequence of tokens produced by the lexer and determining if they form valid syntax according to the grammar of Alan++. If the syntax is valid, the parser builds a Concrete Syntax Tree (CST) representation of the program.
+
+\subsection{TreeNode Class}
+The \texttt{TreeNode} class is the fundamental building block of the Concrete Syntax Tree:
+
+\begin{lstlisting}
+class TreeNode {
+    name: string;       // Name of the node (e.g., 'Program', 'Block')
+    children: TreeNode[]; // Child nodes
+    value?: string;     // Optional value for terminal nodes
+}
+\end{lstlisting}
+
+The \texttt{TreeNode} class provides a method \texttt{addChild} to add child nodes to the tree, facilitating the construction of the hierarchical structure that represents the program's syntax.
+
+\subsection{Parser Class}
+The \texttt{Parser} class implements a recursive descent parser that processes tokens according to the grammar rules of Alan++:
+
+\begin{lstlisting}
+class Parser {
+    private tokens: Token[];           // Input token stream from lexer
+    private currentTokenIndex: number; // Current position in token stream
+    private errors: string[];          // Collection of parsing errors
+    private warnings: string[];        // Collection of warnings
+    private cst: TreeNode | null;      // The resulting Concrete Syntax Tree
+    private debugCallback?: (message: string) => void; // For debugging output
+}
+\end{lstlisting}
+
+\subsubsection{Helper Methods}
+The Parser implements several helper methods to facilitate the parsing process:
+
+\begin{itemize}
+    \item \texttt{getCurrentToken()}: Returns the token at the current position without advancing
+    \item \texttt{advance()}: Moves to the next token in the stream
+    \item \texttt{addError()}: Records an error message with position information
+    \item \texttt{match()}: Checks if the current token matches an expected type and advances if true
+    \item \texttt{expect()}: Similar to match but records an error if the token doesn't match
+\end{itemize}
+
+\begin{lstlisting}
+private expect(expectedType: string, errorMessage: string): boolean {
+    if (this.match(expectedType)) {
+        return true;
+    }
+    this.addError(errorMessage);
+    return false;
+}
+\end{lstlisting}
+
+The error handling is particularly detailed, capturing both the error message and the location in the source code:
+
+\begin{lstlisting}
+private addError(message: string): void {
+    const token = this.getCurrentToken();
+    let position = 'end of file';
+    
+    // Get the position from the current token or the previous token
+    if (token && token.type !== 'EOF') {
+        position = `line ${token.line}:${token.column}`;
+    } else if (this.currentTokenIndex > 0 && this.tokens.length > 0) {
+        const lastToken = this.tokens[this.currentTokenIndex - 1];
+        position = `line ${lastToken.line}:${lastToken.column}`;
+    }
+    
+    this.errors.push(`PARSER --> Error: ${message} at ${position}`);
+    this.debug(`ERROR: ${message} at ${position}`);
+}
+\end{lstlisting}
+
+\subsubsection{Parsing Methods}
+The parser implements a set of methods that correspond to the grammar rules of Alan++. Each method is responsible for parsing a specific syntactic construct:
+
+\begin{itemize}
+    \item \texttt{parseProgram()}: Entry point for parsing a complete program
+    \item \texttt{parseBlock()}: Parses a block of code enclosed in braces
+    \item \texttt{parseStatementList()}: Parses a sequence of statements
+    \item \texttt{parseStatement()}: Dispatches to specific statement parsing methods based on token type
+    \item \texttt{parsePrintStatement()}, \texttt{parseVarDecl()}, \texttt{parseAssignmentStatement()}, etc.: Parse specific statement types
+    \item \texttt{parseExpr()}, \texttt{parseIntExpr()}, \texttt{parseStringExpr()}, \texttt{parseBooleanExpr()}: Parse different types of expressions
+\end{itemize}
+
+\subsubsection{Top-Down Parsing Approach}
+The parser follows a top-down, recursive descent approach, starting with the program and recursively parsing its components:
+
+\begin{lstlisting}
+parseProgram(): TreeNode | null {
+    this.debug('Program');
+    const programNode = new TreeNode('Program');
+    
+    // Program ::== Block $
+    this.debug('Attempting to parse Block');
+    const blockNode = this.parseBlock();
+    if (blockNode) {
+        programNode.addChild(blockNode);
+        this.debug('Block parsed successfully');
+        
+        this.debug('Expecting EOP ($)');
+        if (!this.expect('EOP', "Expected end of program symbol '$'")) {
+            this.debug('Failed to find EOP');
+            return null;
+        }
+        this.debug('Found EOP');
+        
+        this.cst = programNode;
+        this.debug('Program parsed successfully');
+        return programNode;
+    }
+    
+    this.debug('Failed to parse Program');
+    return null;
+}
+\end{lstlisting}
+
+\subsubsection{Statement Parsing}
+The \texttt{parseStatement()} method is particularly important as it determines which type of statement to parse based on the current token:
+
+\begin{lstlisting}
+private parseStatement(): TreeNode | null {
+    this.debug('Statement');
+    const token = this.getCurrentToken();
+    this.debug(`Current token: ${token.type} [${token.value}]`);
+    
+    switch (token.type) {
+        case 'PRINT':
+            this.debug('Found PRINT statement');
+            return this.parsePrintStatement();
+        case 'TYPE':
+            this.debug('Found TYPE declaration');
+            return this.parseVarDecl();
+        case 'ID':
+            this.debug('Found ID (assignment)');
+            return this.parseAssignmentStatement();
+        case 'WHILE':
+            this.debug('Found WHILE statement');
+            return this.parseWhileStatement();
+        case 'IF':
+            this.debug('Found IF statement');
+            return this.parseIfStatement();
+        case 'LBRACE':
+            this.debug('Found nested block');
+            return this.parseBlock();
+        default:
+            this.debug('No valid statement found');
+            return null;
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Expression Parsing}
+The parser handles different types of expressions, including integer, string, and boolean expressions:
+
+\begin{lstlisting}
+private parseExpr(): TreeNode | null {
+    this.debug('Expression');
+    const token = this.getCurrentToken();
+    this.debug(`Current token: ${token.type} [${token.value}]`);
+    
+    if (token.type === 'DIGIT') {
+        this.debug('Found DIGIT (IntExpr)');
+        return this.parseIntExpr();
+    }
+    if (token.type === 'QUOTE') {
+        this.debug('Found QUOTE (StringExpr)');
+        return this.parseStringExpr();
+    }
+    if (token.type === 'LPAREN' || token.type === 'BOOLVAL') {
+        this.debug('Found LPAREN or BOOLVAL (BooleanExpr)');
+        return this.parseBooleanExpr();
+    }
+    if (token.type === 'ID') {
+        this.debug('Found ID');
+        this.advance();
+        this.debug('ID parsed successfully');
+        return new TreeNode('Id', token.value || '');
+    }
+    
+    this.debug('No valid expression found');
+    return null;
+}
+\end{lstlisting}
+
+\subsection{Concrete Syntax Tree Visualization}
+The Parser provides a method to visualize the CST with color-coded formatting:
+
+\begin{lstlisting}
+public static visualizeTree(node: TreeNode, indent: string = ''): string {
+    const nodeColor = '#FFA500'; // Orange for node names
+    const valueColor = '#6A8759'; // Green for values
+    const indentColor = '#606366'; // Grey for indent lines
+
+    let result = `<span style="color: ${indentColor}">${indent}</span>`;
+    result += `<span style="color: ${nodeColor}">${node.name}</span>`;
+    
+    if (node.value) {
+        result += `<span style="color: ${valueColor}"> [${node.value}]</span>`;
+    }
+    result += '\n';
+
+    for (const child of node.children) {
+        result += Parser.visualizeTree(child, indent + '  ');
+    }
+    return result;
+}
+\end{lstlisting}
+
+\subsection{Debugging Support}
+The parser includes comprehensive debugging support to aid in understanding the parsing process:
+
+\begin{lstlisting}
+public enableDebug(callback: (message: string) => void): void {
+    this.debugCallback = callback;
+}
+
+private debug(message: string): void {
+    if (this.debugCallback) {
+        this.debugCallback(message);
+    }
+}
+\end{lstlisting}
+
+Debug messages are emitted at each step of the parsing process, providing visibility into the parser's decision-making and progress.
+
+\subsection{Compilation Process}
+The \texttt{compile()} function orchestrates the entire compilation process, it does this by following the steps below:
+\begin{itemize}
+    \item Splits input code into separate programs based on the \$ (EOP) delimiter
+    \item Processes each program individually
+    \item Performs lexical analysis first, collecting tokens
+    \item Only proceeds to parsing if lexical analysis succeeds
+    \item Enables debugging for the parser to provide detailed parsing information
+    \item Visualizes the resulting CST if parsing succeeds
+    \item Captures and displays any errors that occur during compilation
+\end{itemize}
+
+\subsection{Error Recovery}
+The parser employs a simple error recovery strategy:
+\begin{itemize}
+    \item When an error is encountered during parsing, the error is recorded with detailed position information
+    \item The parser may attempt to continue parsing in some cases, but returns null for the current construct if recovery isn't possible
+    \item Higher-level parsing methods check for null returns from lower-level methods to propagate errors upward
+\end{itemize}
+
+This approach allows the parser to detect multiple errors in a single pass while still providing meaningful feedback about each error's location and nature.
+
+\section{Artificial Intelligence Transcripts}
+While building this project I used the help of cursor and the 3.5 sonnet model. I tried out a couple of scripts and I meta-prompted with OpenAI model GPT-4: 
+\subsection{Lexer AI Prompt}
+Write a TypeScript lexer that tokenizes source code into different token types. The lexer should include a Token class to store token type, value, line, and column. Implement a Lexer class with methods to: 
+\begin{itemize}
+    \item \ Track the current position in the input, line, and column numbers.
+    \item \ Handle whitespace, comments (/.../), and strings (enclosed in double quotes).
+    \item \ Recognize keywords (print, while, if, int, string, boolean, true, false).
+    \item \ Identify identifiers, digits, and special characters ({}, (), +, =, ==, !=).
+    \item \ Report errors for invalid characters.
+    \item \ Format token output and provide a program status summary.
+\end{itemize}
+Refer to the language attached and Include a compile() function that integrates the lexer with an HTML interface, reading source code from a textarea and displaying tokenized output in a div.
+
+\subsection{Parser AI Prompt}
+Write a TypeScript implementation of a simple parser that builds a Concrete Syntax Tree (CST) from a list of tokens: 
+\begin{itemize}
+    \item \ The CST should be represented using a TreeNode class with a name, children, and an optional value.
+    \item \ The parser should have methods to process a Program, Block, StatementList, and various types of statements (PrintStatement, VarDecl, AssignmentStatement, WhileStatement, IfStatement).
+    \item \ It should include error handling, logging debug messages, and a mechanism for matching and expecting tokens.
+    \item \ The parser should take a list of tokens as input and traverse them systematically.
+    \item \ Implement helper functions to get the current token, advance through tokens, and generate errors and warnings when necessary.
+\end{itemize}
+
+\end{document}
