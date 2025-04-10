@@ -63,3 +63,12 @@ class SymbolTable {
     }
 }
 
+// AST Node interface
+interface ASTNode {
+    type: string;
+    value?: string;
+    children: ASTNode[];
+    line?: number;
+    column?: number;
+}
+
