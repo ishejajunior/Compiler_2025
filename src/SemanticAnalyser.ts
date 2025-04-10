@@ -43,4 +43,23 @@ class SymbolTable {
         }
         return null;
     }
-    
+
+    // Mark a symbol as initialized
+    markInitialized(name: string): boolean {
+        const entry = this.table.get(name);
+        if (entry) {
+            entry.isInitialized = true;
+            return true;
+        }
+        if (this.parent) {
+            return this.parent.markInitialized(name);
+        }
+        return false;
+    }
+
+    // Get all symbols in the current scope
+    getSymbols(): Map<string, SymbolTableEntry> {
+        return this.table;
+    }
+}
+
