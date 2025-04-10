@@ -446,6 +446,10 @@ class Parser {
     }
 }
 
+// Make classes available globally
+(window as any).TreeNode = TreeNode;
+(window as any).Parser = Parser;
+
 function compile(): void {
     const sourceCode = (document.getElementById('sourceCode') as HTMLTextAreaElement).value;
     const outputDiv = document.getElementById('output') as HTMLDivElement;
