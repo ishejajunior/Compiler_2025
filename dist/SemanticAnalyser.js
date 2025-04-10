@@ -23,5 +23,21 @@ class SymbolTable {
         }
         return null;
     }
+    // Mark a symbol as initialized
+    markInitialized(name) {
+        const entry = this.table.get(name);
+        if (entry) {
+            entry.isInitialized = true;
+            return true;
+        }
+        if (this.parent) {
+            return this.parent.markInitialized(name);
+        }
+        return false;
+    }
+    // Get all symbols in the current scope
+    getSymbols() {
+        return this.table;
+    }
 }
 //# sourceMappingURL=SemanticAnalyser.js.map
