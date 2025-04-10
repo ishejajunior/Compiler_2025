@@ -32,6 +32,16 @@
     </div>
     <script src="dist/lexer.js"></script>
     <script src="dist/parser.js"></script>
+    <script src="dist/semanticAnalyser.js"></script>
+    <script src="dist/compile.js"></script>
+    <script>
+        function compile() {
+            const sourceCode = document.getElementById('sourceCode').value;
+            const outputDiv = document.getElementById('output');
+            const compiler = new Compile(sourceCode, outputDiv);
+            compiler.compile();
+        }
+    </script>
 </body>
 </html>
 

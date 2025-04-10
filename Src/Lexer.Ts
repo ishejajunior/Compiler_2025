@@ -298,6 +298,10 @@ class Lexer {
     }
 }
 
+// Make classes available globally
+(window as any).Token = Token;
+(window as any).Lexer = Lexer;
+
 function compile(): void {
     const sourceCode = (document.getElementById('sourceCode') as HTMLTextAreaElement).value;
     const outputDiv = document.getElementById('output') as HTMLDivElement;

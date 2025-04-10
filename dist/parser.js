@@ -128,7 +128,6 @@ class Parser {
             }
             return stmtListNode;
         }
-        // Empty statement list is valid (ε production)
         this.debug('No more statements found (ε production)');
         return stmtListNode;
     }
@@ -372,6 +371,9 @@ class Parser {
         }
     }
 }
+// Make classes available globally
+window.TreeNode = TreeNode;
+window.Parser = Parser;
 function compile() {
     const sourceCode = document.getElementById('sourceCode').value;
     const outputDiv = document.getElementById('output');
