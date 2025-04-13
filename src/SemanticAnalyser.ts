@@ -94,12 +94,14 @@ class SemanticAnalyser {
     private symbolTable: SymbolTable;
     private ast: ASTNode | null;
     private debugCallback?: (message: string) => void;
+    private hints: { message: string; line: number; column: number }[];
 
     constructor(tokens: Token[]) {
         this.tokens = tokens;
         this.currentTokenIndex = 0;
         this.errors = [];
         this.warnings = [];
+        this.hints = [];
         this.symbolTable = new SymbolTable();
         this.ast = null;
     }
@@ -126,6 +128,14 @@ class SemanticAnalyser {
     private addWarning(message: string, line: number, column: number): void {
         this.warnings.push(`SEMANTIC --> Warning: ${message} at line ${line}:${column}`);
         this.debug(`WARNING: ${message} at line ${line}:${column}`);
+    }
+
+    private addHint(message: string, line: number, column: number) {
+        this.hints.push({
+            message,
+            line,
+            column
+        });
     }
 
     // Semantic analysis methods
@@ -264,12 +274,18 @@ class SemanticAnalyser {
             this.addError(`Variable '${idToken.value}' not declared`, 
                 idToken.line, 
                 idToken.column);
+            this.addHint(`Consider declaring the variable before using it: 'int ${idToken.value};'`, 
+                idToken.line, 
+                idToken.column);
         }
 
         this.advance();
         
         if (this.getCurrentToken().type !== 'ASSIGN') {
             this.addError("Expected '=' in assignment", 
+                this.getCurrentToken().line, 
+                this.getCurrentToken().column);
+            this.addHint("Make sure to use a single '=' for assignment, not '==' which is for comparison", 
                 this.getCurrentToken().line, 
                 this.getCurrentToken().column);
             return null;
@@ -304,6 +320,9 @@ class SemanticAnalyser {
             }
             else {
                 this.addError(`Type mismatch: cannot assign ${actualType} to ${expectedType}`, 
+                    idToken.line, 
+                    idToken.column);
+                this.addHint(`Consider converting the value to ${expectedType} or changing the variable type to ${actualType}`, 
                     idToken.line, 
                     idToken.column);
             }
@@ -422,11 +441,17 @@ class SemanticAnalyser {
                 this.addError(`Invalid type in arithmetic expression: expected int, got ${exprType}`, 
                     token.line, 
                     token.column);
+                this.addHint(`Consider using integer values or variables in arithmetic expressions`, 
+                    token.line, 
+                    token.column);
                 return null;
             }
 
             if (this.getCurrentToken().type !== 'RPAREN') {
                 this.addError("Expected ')' after expression", 
+                    this.getCurrentToken().line, 
+                    this.getCurrentToken().column);
+                this.addHint("Make sure to close all parentheses in arithmetic expressions", 
                     this.getCurrentToken().line, 
                     this.getCurrentToken().column);
                 return null;
@@ -449,10 +474,16 @@ class SemanticAnalyser {
             const symbol = this.symbolTable.lookupSymbol(token.value!);
             if (!symbol) {
                 this.addError(`Undeclared variable: ${token.value}`, token.line, token.column);
+                this.addHint(`Consider declaring the variable before using it: 'int ${token.value};'`, 
+                    token.line, 
+                    token.column);
                 return null;
             }
             if (symbol.type !== 'int') {
                 this.addError(`Invalid type in arithmetic expression: expected int, got ${symbol.type}`, 
+                    token.line, 
+                    token.column);
+                this.addHint(`Consider using an integer variable or converting the value to int`, 
                     token.line, 
                     token.column);
                 return null;
@@ -467,6 +498,9 @@ class SemanticAnalyser {
         }
         else {
             this.addError("Expected integer expression", token.line, token.column);
+            this.addHint("Arithmetic expressions can only contain integers, variables, and operators", 
+                token.line, 
+                token.column);
             return null;
         }
 
@@ -489,7 +523,22 @@ class SemanticAnalyser {
                 this.addError(`Invalid type in arithmetic expression: expected int, got ${rightType}`, 
                     token.line, 
                     token.column);
+                this.addHint(`Consider using integer values or variables in arithmetic expressions`, 
+                    token.line, 
+                    token.column);
                 return null;
+            }
+
+            // Add optimization hint for common arithmetic patterns
+            if (op === '+' && rightExpr.type === 'IntExpr' && rightExpr.value === '0') {
+                this.addHint("Adding zero has no effect, consider simplifying the expression", 
+                    token.line, 
+                    token.column);
+            }
+            if (op === '*' && (rightExpr.type === 'IntExpr' && rightExpr.value === '1')) {
+                this.addHint("Multiplying by one has no effect, consider simplifying the expression", 
+                    token.line, 
+                    token.column);
             }
 
             return {
@@ -663,40 +712,38 @@ class SemanticAnalyser {
     }
 
     private analyzePrint(): ASTNode | null {
-        this.debug(`Analyzing print statement at line ${this.getCurrentToken().line}`);
-        this.advance(); // Skip 'print'
-
-        if (this.getCurrentToken().type !== 'LPAREN') {
-            this.addError("Expected '(' after 'print'", 
-                this.getCurrentToken().line, 
-                this.getCurrentToken().column);
-            return null;
-        }
-        this.debug("Found opening parenthesis");
+        const printToken = this.getCurrentToken();
         this.advance();
 
-        // Parse the expression inside the print statement
-        this.debug("Starting to parse expression inside print");
-        const exprNode = this.analyzeExpression();
-        if (!exprNode) {
-            this.debug("Failed to parse expression in print statement");
-            return null;
-        }
-        this.debug(`Successfully parsed expression of type ${exprNode.type}`);
-
-        // Check for closing parenthesis
-        this.debug(`Current token after expression: ${this.getCurrentToken().type}`);
-        if (this.getCurrentToken().type !== 'RPAREN') {
-            this.addError("Expected ')' after expression", 
+        if (this.getCurrentToken().type !== 'LPAREN') {
+            this.addError("Expected '(' after print", 
+                this.getCurrentToken().line, 
+                this.getCurrentToken().column);
+            this.addHint("Print statements require parentheses around the expression: print(expression)", 
                 this.getCurrentToken().line, 
                 this.getCurrentToken().column);
             return null;
         }
-        this.debug("Found closing parenthesis");
+        this.advance();
+
+        const exprNode = this.analyzeExpression();
+        if (!exprNode) {
+            return null;
+        }
+
+        if (this.getCurrentToken().type !== 'RPAREN') {
+            this.addError("Expected ')' after print expression", 
+                this.getCurrentToken().line, 
+                this.getCurrentToken().column);
+            this.addHint("Make sure to close the print statement with a ')'", 
+                this.getCurrentToken().line, 
+                this.getCurrentToken().column);
+            return null;
+        }
         this.advance();
 
         return {
-            type: 'PrintStatement',
+            type: 'Print',
             children: [exprNode]
         };
     }
@@ -727,27 +774,51 @@ class SemanticAnalyser {
     }
 
     private analyzeWhile(): ASTNode | null {
-        this.debug(`Analyzing while statement at line ${this.getCurrentToken().line}`);
-        this.advance(); // Skip 'while'
+        const whileToken = this.getCurrentToken();
+        this.advance();
 
-        // Parse the boolean expression
+        if (this.getCurrentToken().type !== 'LPAREN') {
+            this.addError("Expected '(' after while", 
+                this.getCurrentToken().line, 
+                this.getCurrentToken().column);
+            this.addHint("While loops require parentheses around the condition: while(condition)", 
+                this.getCurrentToken().line, 
+                this.getCurrentToken().column);
+            return null;
+        }
+        this.advance();
+
         const conditionNode = this.analyzeBoolExpr();
         if (!conditionNode) {
-            this.debug("Failed to parse while condition");
             return null;
         }
-        this.debug(`Successfully parsed while condition: ${conditionNode.type}`);
 
-        const blockNode = this.analyzeBlock();
-        if (!blockNode) {
-            this.debug("Failed to parse while block");
+        // Check for potential infinite loop
+        if (conditionNode.type === 'boolval' && conditionNode.value === 'true') {
+            this.addHint("This while loop will run indefinitely. Consider adding a condition that can become false", 
+                whileToken.line, 
+                whileToken.column);
+        }
+
+        if (this.getCurrentToken().type !== 'RPAREN') {
+            this.addError("Expected ')' after while condition", 
+                this.getCurrentToken().line, 
+                this.getCurrentToken().column);
+            this.addHint("Make sure to close the while condition with a ')'", 
+                this.getCurrentToken().line, 
+                this.getCurrentToken().column);
             return null;
         }
-        this.debug("Successfully parsed while block");
+        this.advance();
+
+        const bodyNode = this.analyzeBlock();
+        if (!bodyNode) {
+            return null;
+        }
 
         return {
-            type: 'WhileStatement',
-            children: [conditionNode, blockNode]
+            type: 'While',
+            children: [conditionNode, bodyNode]
         };
     }
 
@@ -797,6 +868,10 @@ class SemanticAnalyser {
 
     getWarnings(): string[] {
         return this.warnings;
+    }
+
+    getHints(): string[] {
+        return this.hints.map(hint => `SEMANTIC --> Hint: ${hint.message} at line ${hint.line}:${hint.column}`);
     }
 
     getAST(): ASTNode | null {
@@ -890,6 +965,9 @@ class SemanticAnalyser {
             table.getSymbols().forEach((symbol, name) => {
                 if (!symbol.isUsed) {
                     this.addWarning(`Variable '${name}' is declared but never used`, 
+                        symbol.line, 
+                        symbol.column);
+                    this.addHint(`Consider removing the unused variable or using it in your code`, 
                         symbol.line, 
                         symbol.column);
                 }

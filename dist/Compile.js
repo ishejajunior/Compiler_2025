@@ -78,6 +78,10 @@ class Compile {
                         // Display semantic warnings
                         fullOutput += semanticAnalyser.getWarnings().map(warning => `<div style="color: #FFB100; font-weight: bold;">${warning}</div>`).join('');
                     }
+                    // Display semantic hints
+                    if (semanticAnalyser.getHints().length > 0) {
+                        fullOutput += semanticAnalyser.getHints().map(hint => `<div style="color: #00f2ff; font-weight: bold;">${hint}</div>`).join('');
+                    }
                     if (ast) {
                         fullOutput += `<div style="color: #4CAF50; font-weight: bold;">Semantic analysis completed successfully</div>`;
                         // Display Symbol Table
