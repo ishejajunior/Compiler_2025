@@ -10,6 +10,7 @@ interface Token {
 interface SymbolTableEntry {
     type: string;
     isInitialized: boolean;
+    isUsed: boolean;
     line: number;
     column: number;
 }
@@ -28,7 +29,7 @@ class SymbolTable {
         if (this.table.has(name)) {
             return false; // Symbol already exists in this scope
         }
-        this.table.set(name, { type, isInitialized: false, line, column });
+        this.table.set(name, { type, isInitialized: false, isUsed: false, line, column });
         return true;
     }
 
@@ -53,6 +54,19 @@ class SymbolTable {
         }
         if (this.parent) {
             return this.parent.markInitialized(name);
+        }
+        return false;
+    }
+
+    // Mark a symbol as used
+    markUsed(name: string): boolean {
+        const entry = this.table.get(name);
+        if (entry) {
+            entry.isUsed = true;
+            return true;
+        }
+        if (this.parent) {
+            return this.parent.markUsed(name);
         }
         return false;
     }
@@ -135,6 +149,9 @@ class SemanticAnalyser {
                 this.getCurrentToken().column);
             return null;
         }
+
+        // Check for unused variables
+        this.checkUnusedVariables();
 
         this.ast = programNode;
         return programNode;
@@ -277,11 +294,15 @@ class SemanticAnalyser {
             else if (expectedType === 'string' && actualType === 'stringexpr') {
                 // This is valid
             }
-            // Handle boolean expressions
-            else if (expectedType === 'boolean' && actualType === 'boolexpr') {
+            // Handle boolean expressions and literals
+            else if (expectedType === 'boolean' && (actualType === 'boolexpr' || actualType === 'boolval')) {
                 // This is valid
             }
-            else if (expectedType !== actualType) {
+            // Handle direct type matches
+            else if (expectedType === actualType) {
+                // This is valid
+            }
+            else {
                 this.addError(`Type mismatch: cannot assign ${actualType} to ${expectedType}`, 
                     idToken.line, 
                     idToken.column);
@@ -358,6 +379,8 @@ class SemanticAnalyser {
                         token.line, 
                         token.column);
                 }
+                // Mark the variable as used
+                this.symbolTable.markUsed(token.value!);
                 this.advance();
                 return {
                     type: 'Id',
@@ -575,7 +598,7 @@ class SemanticAnalyser {
             this.advance();
 
             return {
-                type: 'BooleanExpr',
+                type: 'boolexpr',
                 value: op,
                 children: [leftExpr, rightExpr]
             };
@@ -586,7 +609,7 @@ class SemanticAnalyser {
             this.debug(`Found boolean literal: ${token.value}`);
             this.advance();
             return {
-                type: 'BooleanExpr',
+                type: 'boolval',
                 value: token.value!,
                 children: []
             };
@@ -859,6 +882,23 @@ class SemanticAnalyser {
                 "─".repeat(8) + "┘";
         
         return table;
+    }
+
+    // Add this method to check for unused variables
+    private checkUnusedVariables(): void {
+        const collectUnused = (table: SymbolTable) => {
+            table.getSymbols().forEach((symbol, name) => {
+                if (!symbol.isUsed) {
+                    this.addWarning(`Variable '${name}' is declared but never used`, 
+                        symbol.line, 
+                        symbol.column);
+                }
+            });
+            if (table.parent) {
+                collectUnused(table.parent);
+            }
+        };
+        collectUnused(this.symbolTable);
     }
 }
 
