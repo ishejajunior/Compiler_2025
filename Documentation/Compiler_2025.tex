@@ -399,6 +399,313 @@ The parser employs a simple error recovery strategy:
 
 This approach allows the parser to detect multiple errors in a single pass while still providing meaningful feedback about each error's location and nature.
 
+\section{Semantic Analyser}
+
+The semantic analyser takes the Concrete Syntax Tree (CST) produced by the parser and performs semantic checking to ensure the program is meaningful according to the language rules. It builds an Abstract Syntax Tree (AST) which represents the semantic structure of the program and maintains a symbol table to track variable declarations, scopes, and usage patterns.
+
+\subsection{Symbol Table}
+The \texttt{SymbolTable} class is a crucial component that tracks variable declarations across different scopes:
+
+\begin{lstlisting}
+class SymbolTable {
+    private symbols: Map<string, SymbolTableEntry>;
+    private parent: SymbolTable | null;
+    private scopeLevel: number;
+    private children: SymbolTable[];
+}
+\end{lstlisting}
+
+The symbol table uses a hierarchical structure to represent nested scopes:
+
+\begin{itemize}
+    \item Each scope maintains its own collection of variable declarations
+    \item Child scopes can access symbols from parent scopes
+    \item The global scope is at level 0, with nested scopes incrementing by 1
+    \item Symbol lookups check the current scope first, then traverse up the parent chain
+    \item Each variable tracks initialization and usage status
+\end{itemize}
+
+\subsubsection{Symbol Table Entry}
+Each entry in the symbol table contains detailed information about a variable:
+
+\begin{lstlisting}
+interface SymbolTableEntry {
+    name: string;
+    type: string;
+    isInitialized: boolean;
+    isUsed: boolean;
+    line: number;
+    column: number;
+}
+\end{lstlisting}
+
+\subsubsection{Scope Management}
+The symbol table provides methods for creating and navigating nested scopes:
+
+\begin{lstlisting}
+// Create a new nested scope
+enterScope(): SymbolTable {
+    return new SymbolTable(this);
+}
+
+// Return to parent scope
+exitScope(): SymbolTable | null {
+    return this.parent;
+}
+\end{lstlisting}
+
+This allows the semantic analyser to maintain proper variable visibility rules as it processes different blocks of code.
+
+\subsection{Semantic Analyser Class}
+The \texttt{SemanticAnalyser} class performs the semantic analysis:
+
+\begin{lstlisting}
+class SemanticAnalyser {
+    private tokens: Token[];
+    private currentTokenIndex: number;
+    private errors: string[];
+    private warnings: string[];
+    private symbolTable: SymbolTable;
+    private currentScope: SymbolTable;
+    private ast: ASTNode | null;
+    private hints: { message: string; line: number; column: number }[];
+    private scopeStack: SymbolTable[];
+}
+\end{lstlisting}
+
+\subsubsection{AST Node Structure}
+The semantic analyser builds an Abstract Syntax Tree (AST) using this node structure:
+
+\begin{lstlisting}
+interface ASTNode {
+    type: string;
+    value?: string;
+    children: ASTNode[];
+    line?: number;
+    column?: number;
+}
+\end{lstlisting}
+
+Unlike the CST, the AST removes unnecessary syntactic details and retains only semantically relevant nodes.
+
+\subsubsection{Analysis Process}
+The semantic analysis follows a structured approach:
+
+\begin{lstlisting}
+analyzeProgram(): ASTNode | null {
+    // Create program node
+    const programNode: ASTNode = {
+        type: 'Program',
+        children: []
+    };
+
+    // Analyze the block
+    const blockNode = this.analyzeBlock(false);
+    if (blockNode) {
+        programNode.children.push(blockNode);
+    }
+
+    // Check for end of program
+    if (this.getCurrentToken().type !== 'EOP') {
+        this.addError("Expected end of program symbol '$'", 
+            this.getCurrentToken().line, 
+            this.getCurrentToken().column);
+        return null;
+    }
+
+    // Check for unused variables
+    this.checkUnusedVariables();
+
+    this.ast = programNode;
+    return programNode;
+}
+\end{lstlisting}
+
+\subsubsection{Type Checking}
+The analyser performs type checking for expressions and assignments:
+
+\begin{lstlisting}
+// Type checking - normalize types
+if (symbol) {
+    const expectedType = symbol.type.toLowerCase();
+    const actualType = exprNode.type.toLowerCase();
+    
+    if (expectedType === 'int' && (actualType === 'intexpr' || actualType === 'digit')) {
+        // This is valid
+    }
+    else if (expectedType === 'string' && actualType === 'stringexpr') {
+        // This is valid
+    }
+    else if (expectedType === 'boolean' && (actualType === 'boolexpr' || actualType === 'boolval')) {
+        // This is valid
+    }
+    else if (expectedType === actualType) {
+        // This is valid
+    }
+    else {
+        this.addError(`Type mismatch: cannot assign ${actualType} to ${expectedType}`, 
+            idToken.line, 
+            idToken.column);
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Error Handling and Warnings}
+The semantic analyser provides comprehensive error reporting and helpful hints:
+
+\begin{lstlisting}
+private addError(message: string, line: number, column: number): void {
+    this.errors.push(`SEMANTIC --> Error: ${message} at line ${line}:${column}`);
+    this.debug(`ERROR: ${message} at line ${line}:${column}`);
+}
+
+private addWarning(message: string, line: number, column: number): void {
+    this.warnings.push(`SEMANTIC --> Warning: ${message} at line ${line}:${column}`);
+    this.debug(`WARNING: ${message} at line ${line}:${column}`);
+}
+
+private addHint(message: string, line: number, column: number) {
+    this.hints.push({
+        message,
+        line,
+        column
+    });
+}
+\end{lstlisting}
+
+\subsubsection{Static Analysis}
+The analyser performs static checks such as identifying:
+
+\begin{itemize}
+    \item Variables used before initialization
+    \item Unused variables
+    \item Type mismatches in expressions and assignments
+    \item Potential infinite loops
+\end{itemize}
+
+\begin{lstlisting}
+// Check for unused variables
+private checkUnusedVariables(): void {
+    const unusedSymbols = this.symbolTable.getUnusedSymbols();
+    
+    for (const { symbol, scopeLevel } of unusedSymbols) {
+        this.addWarning(`Variable '${symbol.name}' is declared but never used`, 
+            symbol.line, 
+            symbol.column);
+        this.addHint(`Consider removing the unused variable or using it in your code`, 
+            symbol.line, 
+            symbol.column);
+    }
+}
+\end{lstlisting}
+
+\subsection{Context-Sensitive Analysis}
+Unlike the lexer and parser which perform context-free analysis, the semantic analyser performs context-sensitive analysis, examining:
+
+\begin{itemize}
+    \item Variable declarations and their scopes
+    \item Type compatibility in expressions and assignments
+    \item Control flow structures like if statements and while loops
+    \item Boolean expressions and comparisons
+\end{itemize}
+
+\subsection{AST Visualization}
+The semantic analyser provides methods to visualize the Abstract Syntax Tree:
+
+\begin{lstlisting}
+public static visualizeTree(node: ASTNode | null): string {
+    if (node === null) {
+        return "AST is null";
+    }
+    
+    return "AST:\n" + this.visualizeTreeNode(node);
+}
+
+private static visualizeTreeNode(node: ASTNode, indent: string = ""): string {
+    let result = indent + node.type;
+    
+    if (node.value !== undefined) {
+        result += ` [${node.value}]`;
+    }
+    result += "\n";
+    
+    for (const child of node.children) {
+        result += this.visualizeTreeNode(child, indent + "  ");
+    }
+    
+    return result;
+}
+\end{lstlisting}
+
+\subsection{Symbol Table Visualization}
+The semantic analyser can also generate a visual representation of the symbol table:
+
+\begin{lstlisting}
+public static visualizeSymbolTable(symbols: { name: string; type: string; initialized: boolean; isUsed: boolean; line: number; column: number; scopeLevel: number }[]): string {
+    // Group symbols by scope level
+    const symbolsByScope: Record<number, typeof symbols> = {};
+    symbols.forEach(symbol => {
+        if (!symbolsByScope[symbol.scopeLevel]) {
+            symbolsByScope[symbol.scopeLevel] = [];
+        }
+        symbolsByScope[symbol.scopeLevel].push(symbol);
+    });
+    
+    let output = "SYMBOL TABLE\n============\n\n";
+    
+    // Process each scope level
+    Object.keys(symbolsByScope).map(Number).sort((a, b) => a - b).forEach(level => {
+        const scopeSymbols = symbolsByScope[level].sort((a, b) => a.name.localeCompare(b.name));
+        
+        output += `Scope Level ${level}${level === 0 ? " (Global)" : ""}\n`;
+        output += "─".repeat(60) + "\n";
+        
+        // Add symbols for this scope with their properties
+        scopeSymbols.forEach(symbol => {
+            const initialized = symbol.initialized ? "Yes" : "No";
+            const used = symbol.isUsed ? "Yes" : "No";
+            
+            output += symbol.name.padEnd(15) + "│ " + 
+                     symbol.type.padEnd(10) + "│ " + 
+                     initialized.padEnd(5) + "│ " + 
+                     used.padEnd(5) + "│ " + 
+                     `${symbol.line}:${symbol.column}\n`;
+        });
+    });
+    
+    return output;
+}
+\end{lstlisting}
+
+\subsection{Integration with Compilation Pipeline}
+The semantic analyser integrates into the compilation pipeline after the parser:
+
+\begin{lstlisting}
+// If parsing succeeded, proceed with semantic analysis
+const semanticAnalyzer = new SemanticAnalyser(tokens);
+semanticAnalyzer.enableDebug((msg) => {
+    output += `<div style="color: #666; margin-left: 20px;">SEMANTIC --> ${msg}</div>`;
+});
+const ast = semanticAnalyzer.analyzeProgram();
+
+// Display error messages if any
+if (semanticAnalyzer.getErrors().length > 0) {
+    output += semanticAnalyzer.getErrors().map(error => 
+        `<div style="color: red; font-weight: bold;">${error}</div>`).join('');
+    output += `<div style="color: red; font-weight: bold;">Semantic analysis failed</div>`;
+} else {
+    // Display semantic warnings and hints if any
+    if (semanticAnalyzer.getWarnings().length > 0) {
+        output += semanticAnalyzer.getWarnings().map(warning => 
+            `<div style="color: #FFB100; font-weight: bold;">${warning}</div>`).join('');
+    }
+    // Display AST visualization
+    output += `<div style="color: #4CAF50; font-weight: bold;">Semantic analysis completed successfully</div>`;
+    output += `<h4>Abstract Syntax Tree</h4>`;
+    output += `<pre>${SemanticAnalyser.visualizeTree(ast)}</pre>`;
+}
+\end{lstlisting}
+
 \section{Artificial Intelligence Transcripts}
 While building this project I used the help of cursor and the 3.5 sonnet model. I tried out a couple of scripts and I meta-prompted with OpenAI model GPT-4: 
 \subsection{Lexer AI Prompt}
