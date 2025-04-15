@@ -424,7 +424,10 @@ class SemanticAnalyser {
                     this.addError(`Variable '${token.value}' not declared`, token.line, token.column);
                 }
                 else if (!symbol.isInitialized) {
-                    this.addWarning(`Variable '${token.value}' might not be initialized`, token.line, token.column);
+                    // Only issue a warning if we're sure the variable hasn't been initialized
+                    // and we're trying to read its value (not just setting it)
+                    this.addWarning(`Variable '${token.value}' is used before being initialized`, token.line, token.column);
+                    this.addHint(`Initialize '${token.value}' before using it in an expression`, token.line, token.column);
                 }
                 // Mark the variable as used
                 this.currentScope.markUsed(token.value);
@@ -542,20 +545,16 @@ class SemanticAnalyser {
         return leftExpr;
     }
     analyzeStringExpr() {
-        const exprNode = {
-            type: 'StringExpr',
-            children: []
-        };
+        let stringValue = "";
+        const startLine = this.getCurrentToken().line;
+        const startColumn = this.getCurrentToken().column;
         this.advance(); // Skip opening quote
+        // Collect all characters into a single string
         while (this.getCurrentToken().type !== 'QUOTE' &&
             this.getCurrentToken().type !== 'EOF') {
             if (this.getCurrentToken().type === 'CHAR' ||
                 this.getCurrentToken().type === 'SPACE') {
-                exprNode.children.push({
-                    type: 'Char',
-                    value: this.getCurrentToken().value,
-                    children: []
-                });
+                stringValue += this.getCurrentToken().value;
                 this.advance();
             }
             else {
@@ -568,69 +567,62 @@ class SemanticAnalyser {
             return null;
         }
         this.advance(); // Skip closing quote
-        return exprNode;
+        // Return a single string expression with the complete string value
+        return {
+            type: 'StringExpr',
+            value: stringValue,
+            line: startLine,
+            column: startColumn,
+            children: [] // No children needed since we store the full string in value
+        };
     }
     analyzeBoolExpr() {
         const token = this.getCurrentToken();
         this.debug(`Analyzing boolean expression starting with: ${token.type} [${token.value}]`);
-        // Handle parenthesized boolean expressions
-        if (token.type === 'LPAREN') {
-            this.debug("Found opening parenthesis in boolean expression");
-            this.advance();
-            // Parse left expression
-            const leftExpr = this.analyzeExpression();
-            if (!leftExpr) {
-                this.debug("Failed to parse left side of boolean expression");
-                return null;
-            }
-            this.debug(`Successfully parsed left side: ${leftExpr.type}`);
-            // Check for boolean operator
-            if (this.getCurrentToken().type !== 'BOOLOP') {
-                this.addError("Expected boolean operator (== or !=)", this.getCurrentToken().line, this.getCurrentToken().column);
-                return null;
-            }
-            const op = this.getCurrentToken().value;
-            this.debug(`Found boolean operator: ${op}`);
-            this.advance();
-            // Parse right expression
-            const rightExpr = this.analyzeExpression();
-            if (!rightExpr) {
-                this.debug("Failed to parse right side of boolean expression");
-                return null;
-            }
-            this.debug(`Successfully parsed right side: ${rightExpr.type}`);
-            // Type checking for boolean expressions
-            const leftType = this.getExpressionType(leftExpr);
-            const rightType = this.getExpressionType(rightExpr);
-            // Check if types are compatible for comparison
-            if (!this.areTypesComparable(leftType, rightType)) {
-                this.addError(`Invalid type comparison: cannot compare ${leftType} with ${rightType}`, token.line, token.column);
-            }
-            // Check for closing parenthesis
-            if (this.getCurrentToken().type !== 'RPAREN') {
-                this.addError("Expected ')' after boolean expression", this.getCurrentToken().line, this.getCurrentToken().column);
-                return null;
-            }
-            this.debug("Found closing parenthesis in boolean expression");
-            this.advance();
-            return {
-                type: 'boolexpr',
-                value: op,
-                children: [leftExpr, rightExpr]
-            };
-        }
-        // Handle boolean literals
+        // Handle boolean literals directly
         if (token.type === 'BOOLVAL') {
             this.debug(`Found boolean literal: ${token.value}`);
             this.advance();
             return {
-                type: 'boolval',
+                type: 'boolexpr',
                 value: token.value,
                 children: []
             };
         }
-        this.addError("Expected boolean expression", token.line, token.column);
-        return null;
+        // Handle simple comparison expressions without parentheses
+        // This handles cases like: a != 5 or x == y
+        let leftExpr = this.analyzeExpression();
+        if (!leftExpr) {
+            this.debug("Failed to parse left side of boolean expression");
+            return null;
+        }
+        // Check for boolean operator
+        if (this.getCurrentToken().type !== 'BOOLOP') {
+            this.addError("Expected boolean operator (== or !=)", this.getCurrentToken().line, this.getCurrentToken().column);
+            return null;
+        }
+        const op = this.getCurrentToken().value;
+        this.debug(`Found boolean operator: ${op}`);
+        this.advance();
+        // Parse right expression
+        const rightExpr = this.analyzeExpression();
+        if (!rightExpr) {
+            this.debug("Failed to parse right side of boolean expression");
+            return null;
+        }
+        // Type checking for boolean expressions
+        const leftType = this.getExpressionType(leftExpr);
+        const rightType = this.getExpressionType(rightExpr);
+        // Check if types are compatible for comparison
+        if (!this.areTypesComparable(leftType, rightType)) {
+            this.addError(`Invalid type comparison: cannot compare ${leftType} with ${rightType}`, token.line, token.column);
+            this.addHint(`Make sure you're comparing compatible types. Both sides should be the same type.`, token.line, token.column);
+        }
+        return {
+            type: 'boolexpr',
+            value: op,
+            children: [leftExpr, rightExpr]
+        };
     }
     getExpressionType(expr) {
         switch (expr.type) {
@@ -639,7 +631,9 @@ class SemanticAnalyser {
                 return 'int';
             case 'StringExpr':
                 return 'string';
+            case 'boolexpr':
             case 'BoolExpr':
+            case 'boolval':
             case 'BoolVal':
                 return 'boolean';
             case 'Id':
@@ -727,12 +721,14 @@ class SemanticAnalyser {
             return null;
         }
         this.advance();
+        // Use analyzeBoolExpr for the condition
         const conditionNode = this.analyzeBoolExpr();
         if (!conditionNode) {
+            this.debug("Failed to parse while condition");
             return null;
         }
         // Check for potential infinite loop
-        if (conditionNode.type === 'boolval' && conditionNode.value === 'true') {
+        if (conditionNode.value === 'true') {
             this.addHint("This while loop will run indefinitely. Consider adding a condition that can become false", whileToken.line, whileToken.column);
         }
         if (this.getCurrentToken().type !== 'RPAREN') {
@@ -763,16 +759,42 @@ class SemanticAnalyser {
         return false;
     }
     // Helper to visualize the AST
+    static visualizeTree(node) {
+        if (node === null) {
+            return "AST is null";
+        }
+        return "AST:\n" + this.visualizeTreeNode(node);
+    }
+    static visualizeTreeNode(node, indent = "") {
+        let result = indent + node.type;
+        if (node.value !== undefined) {
+            result += ` [${node.value}]`;
+        }
+        result += "\n";
+        // Don't visualize children for string expressions with a value property
+        if (node.type === 'StringExpr' && node.value) {
+            return result;
+        }
+        for (const child of node.children) {
+            result += this.visualizeTreeNode(child, indent + "  ");
+        }
+        return result;
+    }
+    // Helper to visualize the AST with colors for HTML output
     static visualizeAST(node, indent = '') {
         const nodeColor = '#FFA500'; // Orange for node names
         const valueColor = '#6A8759'; // Green for values
         const indentColor = '#606366'; // Grey for indent lines
         let result = `<span style="color: ${indentColor}">${indent}</span>`;
         result += `<span style="color: ${nodeColor}">${node.type}</span>`;
-        if (node.value) {
+        if (node.value !== undefined) {
             result += `<span style="color: ${valueColor}"> [${node.value}]</span>`;
         }
         result += '\n';
+        // Don't visualize children for string expressions with a value property
+        if (node.type === 'StringExpr' && node.value) {
+            return result;
+        }
         for (const child of node.children) {
             result += SemanticAnalyser.visualizeAST(child, indent + '  ');
         }
