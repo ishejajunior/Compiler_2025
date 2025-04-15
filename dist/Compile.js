@@ -73,27 +73,37 @@ class Compile {
                         // Display semantic errors
                         fullOutput += semanticAnalyser.getErrors().map(error => `<div style="color: red; font-weight: bold;">${error}</div>`).join('');
                         fullOutput += `<div style="color: red; font-weight: bold;">Semantic analysis failed</div>`;
+                        fullOutput += '<hr>';
+                        continue; // Move to next program
                     }
-                    else if (semanticAnalyser.getWarnings().length > 0) {
+                    // Only proceed with warnings, hints, and AST if there are no errors
+                    if (semanticAnalyser.getWarnings().length > 0) {
                         // Display semantic warnings
                         fullOutput += semanticAnalyser.getWarnings().map(warning => `<div style="color: #FFB100; font-weight: bold;">${warning}</div>`).join('');
                     }
+                    // Display semantic hints
+                    if (semanticAnalyser.getHints().length > 0) {
+                        fullOutput += semanticAnalyser.getHints().map(hint => `<div style="color: #00f2ff; font-weight: bold;">${hint}</div>`).join('');
+                    }
+                    // Only generate and display AST and symbol table if semantic analysis succeeded
                     if (ast) {
                         fullOutput += `<div style="color: #4CAF50; font-weight: bold;">Semantic analysis completed successfully</div>`;
                         // Display Symbol Table
                         fullOutput += `<h4>Symbol Table</h4>`;
                         const symbolTableData = semanticAnalyser.getSymbolTableData();
-                        fullOutput += `<pre style="
-                            background-color: #2b2b2b;
-                            color: #a9b7c6;
-                            padding: 15px;
-                            border-radius: 5px;
-                            font-family: 'Consolas', monospace;
-                            border: 1px solid #3c3f41;
-                            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                            overflow: auto;
-                            max-height: 500px;
-                        ">${SemanticAnalyser.visualizeSymbolTable(symbolTableData)}</pre>`;
+                        if (symbolTableData.length > 0) {
+                            fullOutput += `<pre style="
+                                background-color: #2b2b2b;
+                                color: #a9b7c6;
+                                padding: 15px;
+                                border-radius: 5px;
+                                font-family: 'Consolas', monospace;
+                                border: 1px solid #3c3f41;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                                overflow: auto;
+                                max-height: 500px;
+                            ">${SemanticAnalyser.visualizeSymbolTable(symbolTableData)}</pre>`;
+                        }
                         // Display Abstract Syntax Tree
                         fullOutput += `<h4>Abstract Syntax Tree</h4>`;
                         fullOutput += `<pre style="
