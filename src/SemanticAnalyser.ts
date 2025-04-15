@@ -6,8 +6,24 @@ interface Token {
     column: number;
 }
 
+// Token class implementation
+class TokenImpl implements Token {
+    type: string;
+    value: string | null;
+    line: number;
+    column: number;
+
+    constructor(type: string, value: string | null, line: number = 0, column: number = 0) {
+        this.type = type;
+        this.value = value;
+        this.line = line;
+        this.column = column;
+    }
+}
+
 // Symbol table entry interface
 interface SymbolTableEntry {
+    name: string;    // Adding name to the entry itself
     type: string;
     isInitialized: boolean;
     isUsed: boolean;
@@ -15,27 +31,71 @@ interface SymbolTableEntry {
     column: number;
 }
 
-// Symbol table class
+// Enhanced Symbol table class with proper scope management
 class SymbolTable {
-    private table: Map<string, SymbolTableEntry>;
-    public parent: SymbolTable | null;
+    private symbols: Map<string, SymbolTableEntry>;
+    private parent: SymbolTable | null;
+    private scopeLevel: number;
+    private children: SymbolTable[];
 
     constructor(parent: SymbolTable | null = null) {
-        this.table = new Map();
+        this.symbols = new Map();
         this.parent = parent;
+        this.children = [];
+        
+        // Calculate scope level based on parent
+        this.scopeLevel = parent ? parent.scopeLevel + 1 : 0;
+        
+        // Register as child of parent
+        if (parent) {
+            parent.addChild(this);
+        }
     }
+
+    // Register a child scope
+    private addChild(child: SymbolTable): void {
+        this.children.push(child);
+    }
+
+    // Get the scope level of this symbol table
+    getScopeLevel(): number {
+        return this.scopeLevel;
+    }
+
+    // Create a new nested scope
+    enterScope(): SymbolTable {
+        return new SymbolTable(this);
+    }
+
+    // Return to parent scope
+    exitScope(): SymbolTable | null {
+        return this.parent;
+    }
+
     // Add a symbol to the table
     addSymbol(name: string, type: string, line: number, column: number): boolean {
-        if (this.table.has(name)) {
+        if (this.symbols.has(name)) {
             return false; // Symbol already exists in this scope
         }
-        this.table.set(name, { type, isInitialized: false, isUsed: false, line, column });
+        this.symbols.set(name, { 
+            name, 
+            type, 
+            isInitialized: false, 
+            isUsed: false, 
+            line, 
+            column 
+        });
         return true;
+    }
+
+    // Look up a symbol in the current scope only
+    lookupSymbolInCurrentScope(name: string): SymbolTableEntry | null {
+        return this.symbols.get(name) || null;
     }
 
     // Look up a symbol in the current scope and parent scopes
     lookupSymbol(name: string): SymbolTableEntry | null {
-        const entry = this.table.get(name);
+        const entry = this.symbols.get(name);
         if (entry) {
             return entry;
         }
@@ -45,9 +105,14 @@ class SymbolTable {
         return null;
     }
 
+    // Check if a symbol is defined in any scope
+    isDefined(name: string): boolean {
+        return this.lookupSymbol(name) !== null;
+    }
+
     // Mark a symbol as initialized
     markInitialized(name: string): boolean {
-        const entry = this.table.get(name);
+        const entry = this.symbols.get(name);
         if (entry) {
             entry.isInitialized = true;
             return true;
@@ -60,7 +125,7 @@ class SymbolTable {
 
     // Mark a symbol as used
     markUsed(name: string): boolean {
-        const entry = this.table.get(name);
+        const entry = this.symbols.get(name);
         if (entry) {
             entry.isUsed = true;
             return true;
@@ -73,7 +138,81 @@ class SymbolTable {
 
     // Get all symbols in the current scope
     getSymbols(): Map<string, SymbolTableEntry> {
-        return this.table;
+        return this.symbols;
+    }
+
+    // Get all child scopes
+    getChildScopes(): SymbolTable[] {
+        return this.children;
+    }
+
+    // Get parent scope
+    getParentScope(): SymbolTable | null {
+        return this.parent;
+    }
+
+    // Get all symbols with their scope levels
+    getAllSymbols(): Array<{ symbol: SymbolTableEntry, scopeLevel: number }> {
+        const result: Array<{ symbol: SymbolTableEntry, scopeLevel: number }> = [];
+        
+        // Add symbols from this scope
+        this.symbols.forEach(symbol => {
+            result.push({
+                symbol,
+                scopeLevel: this.scopeLevel
+            });
+        });
+        
+        // Recursively add symbols from child scopes
+        for (const child of this.children) {
+            result.push(...child.getAllSymbols());
+        }
+        
+        return result;
+    }
+    
+    // Get all unused symbols in this scope and child scopes
+    getUnusedSymbols(): Array<{ symbol: SymbolTableEntry, scopeLevel: number }> {
+        const result: Array<{ symbol: SymbolTableEntry, scopeLevel: number }> = [];
+        
+        // Check symbols in this scope
+        this.symbols.forEach(symbol => {
+            if (!symbol.isUsed) {
+                result.push({
+                    symbol,
+                    scopeLevel: this.scopeLevel
+                });
+            }
+        });
+        
+        // Recursively check child scopes
+        for (const child of this.children) {
+            result.push(...child.getUnusedSymbols());
+        }
+        
+        return result;
+    }
+    
+    // Get all uninitialized symbols in this scope and child scopes
+    getUninitializedSymbols(): Array<{ symbol: SymbolTableEntry, scopeLevel: number }> {
+        const result: Array<{ symbol: SymbolTableEntry, scopeLevel: number }> = [];
+        
+        // Check symbols in this scope
+        this.symbols.forEach(symbol => {
+            if (!symbol.isInitialized && symbol.isUsed) {
+                result.push({
+                    symbol,
+                    scopeLevel: this.scopeLevel
+                });
+            }
+        });
+        
+        // Recursively check child scopes
+        for (const child of this.children) {
+            result.push(...child.getUninitializedSymbols());
+        }
+        
+        return result;
     }
 }
 
@@ -92,9 +231,11 @@ class SemanticAnalyser {
     private errors: string[];
     private warnings: string[];
     private symbolTable: SymbolTable;
+    private currentScope: SymbolTable; // Track current active scope
     private ast: ASTNode | null;
     private debugCallback?: (message: string) => void;
     private hints: { message: string; line: number; column: number }[];
+    private scopeStack: SymbolTable[]; // Stack to track scope hierarchy
 
     constructor(tokens: Token[]) {
         this.tokens = tokens;
@@ -102,14 +243,34 @@ class SemanticAnalyser {
         this.errors = [];
         this.warnings = [];
         this.hints = [];
-        this.symbolTable = new SymbolTable();
+        this.symbolTable = new SymbolTable(); // Global scope
+        this.currentScope = this.symbolTable;  // Start in global scope
+        this.scopeStack = [this.symbolTable];  // Track scope stack
         this.ast = null;
+    }
+
+    // Helper methods for scope management
+    private enterScope(): void {
+        this.currentScope = this.currentScope.enterScope();
+        this.scopeStack.push(this.currentScope);
+        this.debug(`Entering new scope at level ${this.currentScope.getScopeLevel()}`);
+    }
+
+    private exitScope(): void {
+        if (this.scopeStack.length <= 1) {
+            this.debug("Cannot exit global scope");
+            return;
+        }
+        
+        this.scopeStack.pop();
+        this.currentScope = this.scopeStack[this.scopeStack.length - 1];
+        this.debug(`Exiting to scope at level ${this.currentScope.getScopeLevel()}`);
     }
 
     // Helper methods
     private getCurrentToken(): Token {
         if (this.currentTokenIndex >= this.tokens.length) {
-            return new Token('EOF', null);
+            return new TokenImpl('EOF', null);
         }
         return this.tokens[this.currentTokenIndex];
     }
@@ -147,7 +308,7 @@ class SemanticAnalyser {
         };
 
         // Analyze the block
-        const blockNode = this.analyzeBlock();
+        const blockNode = this.analyzeBlock(false); // Parameter indicates if this is an if block
         if (blockNode) {
             programNode.children.push(blockNode);
         }
@@ -167,15 +328,16 @@ class SemanticAnalyser {
         return programNode;
     }
 
-    private analyzeBlock(): ASTNode | null {
+    private analyzeBlock(isIfBlock: boolean = false): ASTNode | null {
         const blockNode: ASTNode = {
             type: 'Block',
             children: []
         };
 
-        // Create a new scope for the block, but preserve the parent scope
-        const previousSymbolTable = this.symbolTable;
-        this.symbolTable = new SymbolTable(previousSymbolTable);
+        // Only create a new scope if this is not an if statement block
+        if (!isIfBlock) {
+            this.enterScope(); // Create a new scope for this block
+        }
 
         // Expect opening brace
         if (!this.expect('LBRACE', "Expected '{' at start of block")) {
@@ -199,9 +361,10 @@ class SemanticAnalyser {
             return null;
         }
 
-        // Don't restore the previous scope here - we want to keep all symbols
-        // for the symbol table display
-        // this.symbolTable = previousSymbolTable;
+        // Only exit scope if we created a new one
+        if (!isIfBlock) {
+            this.exitScope(); // Return to parent scope
+        }
 
         return blockNode;
     }
@@ -243,12 +406,16 @@ class SemanticAnalyser {
             return null;
         }
 
-        // Add to symbol table
-        if (!this.symbolTable.addSymbol(idToken.value!, typeToken.value!, 
-            idToken.line, idToken.column)) {
+        // Check if variable already exists in current scope only
+        if (this.currentScope.lookupSymbolInCurrentScope(idToken.value!)) {
             this.addError(`Variable '${idToken.value}' already declared in this scope`, 
                 idToken.line, 
                 idToken.column);
+        } else {
+            // Add to symbol table in current scope
+            this.currentScope.addSymbol(idToken.value!, typeToken.value!, 
+                idToken.line, idToken.column);
+            this.debug(`Added symbol '${idToken.value}' with type '${typeToken.value}' to scope level ${this.currentScope.getScopeLevel()}`);
         }
 
         this.advance();
@@ -268,7 +435,7 @@ class SemanticAnalyser {
 
     private analyzeAssignment(): ASTNode | null {
         const idToken = this.getCurrentToken();
-        const symbol = this.symbolTable.lookupSymbol(idToken.value!);
+        const symbol = this.currentScope.lookupSymbol(idToken.value!);
         
         if (!symbol) {
             this.addError(`Variable '${idToken.value}' not declared`, 
@@ -330,7 +497,7 @@ class SemanticAnalyser {
 
         // Mark as initialized
         if (symbol) {
-            this.symbolTable.markInitialized(idToken.value!);
+            this.currentScope.markInitialized(idToken.value!);
         }
 
         return {
@@ -388,7 +555,7 @@ class SemanticAnalyser {
                 return this.analyzeBoolExpr();
             case 'ID':
                 this.debug(`Found identifier in expression: ${token.value}`);
-                const symbol = this.symbolTable.lookupSymbol(token.value!);
+                const symbol = this.currentScope.lookupSymbol(token.value!);
                 if (!symbol) {
                     this.addError(`Variable '${token.value}' not declared`, 
                         token.line, 
@@ -399,7 +566,7 @@ class SemanticAnalyser {
                         token.column);
                 }
                 // Mark the variable as used
-                this.symbolTable.markUsed(token.value!);
+                this.currentScope.markUsed(token.value!);
                 this.advance();
                 return {
                     type: 'Id',
@@ -471,7 +638,7 @@ class SemanticAnalyser {
         }
         // Handle identifier
         else if (token.type === 'ID') {
-            const symbol = this.symbolTable.lookupSymbol(token.value!);
+            const symbol = this.currentScope.lookupSymbol(token.value!);
             if (!symbol) {
                 this.addError(`Undeclared variable: ${token.value}`, token.line, token.column);
                 this.addHint(`Consider declaring the variable before using it: 'int ${token.value};'`, 
@@ -679,7 +846,7 @@ class SemanticAnalyser {
             case 'BoolVal':
                 return 'boolean';
             case 'Id':
-                const symbol = this.symbolTable.lookupSymbol(expr.value!);
+                const symbol = this.currentScope.lookupSymbol(expr.value!);
                 return symbol ? symbol.type : 'unknown';
             default:
                 return 'unknown';
@@ -760,7 +927,13 @@ class SemanticAnalyser {
         }
         this.debug(`Successfully parsed if condition: ${conditionNode.type}`);
 
-        const blockNode = this.analyzeBlock();
+        // For if blocks, we want to create a new scope but inherit the parent's symbols
+        this.enterScope();
+        
+        const blockNode = this.analyzeBlock(true); // true indicates this is an if block
+        
+        this.exitScope();
+        
         if (!blockNode) {
             this.debug("Failed to parse if block");
             return null;
@@ -811,7 +984,13 @@ class SemanticAnalyser {
         }
         this.advance();
 
-        const bodyNode = this.analyzeBlock();
+        // Create a new scope for the while body
+        this.enterScope();
+        
+        const bodyNode = this.analyzeBlock(true); // true means don't create another scope
+        
+        this.exitScope();
+        
         if (!bodyNode) {
             return null;
         }
@@ -878,110 +1057,162 @@ class SemanticAnalyser {
         return this.ast;
     }
 
-    public getSymbolTableData(): { name: string; type: string; initialized: boolean; line: number; column: number; scopeLevel: number }[] {
-        const symbols: { name: string; type: string; initialized: boolean; line: number; column: number; scopeLevel: number }[] = [];
+    public getSymbolTableData(): { name: string; type: string; initialized: boolean; isUsed: boolean; line: number; column: number; scopeLevel: number }[] {
+        // Get all symbols with their scope levels
+        const allSymbols = this.symbolTable.getAllSymbols();
         
-        // First find all scopes in the hierarchy
-        const scopes: SymbolTable[] = [];
-        let currentTable = this.symbolTable;
-        while (currentTable) {
-            scopes.unshift(currentTable); // Add to beginning to maintain order
-            currentTable = currentTable.parent;
-        }
-        
-        // Now collect symbols from each scope with the correct scope number
-        scopes.forEach((table, index) => {
-            this.debug(`Collecting symbols from scope ${index}`);
-            this.debug(`Current table has ${table.getSymbols().size} symbols`);
-            
-            // Collect symbols from current scope
-            table.getSymbols().forEach((symbol, name) => {
-                this.debug(`Adding symbol ${name} to scope ${index}`);
-                symbols.push({
-                    name: name,
-                    type: symbol.type,
-                    initialized: symbol.isInitialized,
-                    line: symbol.line,
-                    column: symbol.column,
-                    scopeLevel: index
-                });
-            });
+        // Map to the expected format
+        return allSymbols.map(({ symbol, scopeLevel }) => ({
+            name: symbol.name,
+            type: symbol.type,
+            initialized: symbol.isInitialized,
+            isUsed: symbol.isUsed,
+            line: symbol.line,
+            column: symbol.column,
+            scopeLevel
+        })).sort((a, b) => {
+            // Sort by scope level (ascending) and then by name
+            if (a.scopeLevel !== b.scopeLevel) {
+                return a.scopeLevel - b.scopeLevel;
+            }
+            return a.name.localeCompare(b.name);
         });
-        
-        // Sort symbols by scope level (innermost first)
-        const sortedSymbols = symbols.sort((a, b) => b.scopeLevel - a.scopeLevel);
-        this.debug(`Final symbol table has ${sortedSymbols.length} symbols`);
-        sortedSymbols.forEach(s => this.debug(`Symbol ${s.name} in scope ${s.scopeLevel}`));
-        
-        return sortedSymbols;
     }
 
-    public static visualizeSymbolTable(symbols: { name: string; type: string; initialized: boolean; line: number; column: number; scopeLevel: number }[]): string {
+    public static visualizeSymbolTable(symbols: { name: string; type: string; initialized: boolean; isUsed: boolean; line: number; column: number; scopeLevel: number }[]): string {
         if (symbols.length === 0) {
             return "Symbol Table is empty";
         }
 
-        const maxNameLength = Math.max(...symbols.map(s => s.name.length), 4);
-        const maxTypeLength = Math.max(...symbols.map(s => s.type.length), 4);
-        
-        let table = "┌" + "─".repeat(maxNameLength + 2) + "┬" + 
-                   "─".repeat(maxTypeLength + 2) + "┬" + 
-                   "─".repeat(12) + "┬" + 
-                   "─".repeat(8) + "┬" +
-                   "─".repeat(8) + "┐\n";
-        
-        table += "│ " + "Name".padEnd(maxNameLength) + " │ " + 
-                "Type".padEnd(maxTypeLength) + " │ " + 
-                "Initialized".padEnd(10) + " │ " + 
-                "Location".padEnd(6) + " │ " +
-                "Scope".padEnd(6) + " │\n";
-        
-        table += "├" + "─".repeat(maxNameLength + 2) + "┼" + 
-                "─".repeat(maxTypeLength + 2) + "┼" + 
-                "─".repeat(12) + "┼" + 
-                "─".repeat(8) + "┼" +
-                "─".repeat(8) + "┤\n";
-        
+        // Group symbols by scope level
+        const symbolsByScope: Record<number, typeof symbols> = {};
         symbols.forEach(symbol => {
-            table += "│ " + symbol.name.padEnd(maxNameLength) + " │ " + 
-                    symbol.type.padEnd(maxTypeLength) + " │ " + 
-                    (symbol.initialized ? "Yes" : "No").padEnd(10) + " │ " + 
-                    `${symbol.line}:${symbol.column}`.padEnd(6) + " │ " +
-                    `Scope ${symbol.scopeLevel}`.padEnd(6) + " │\n";
+            if (!symbolsByScope[symbol.scopeLevel]) {
+                symbolsByScope[symbol.scopeLevel] = [];
+            }
+            symbolsByScope[symbol.scopeLevel].push(symbol);
+        });
+
+        // Get all scope levels and sort them
+        const scopeLevels = Object.keys(symbolsByScope).map(Number).sort((a, b) => a - b);
+        
+        let output = "SYMBOL TABLE\n============\n\n";
+        
+        // Process each scope level
+        scopeLevels.forEach(level => {
+            const scopeSymbols = symbolsByScope[level].sort((a, b) => a.name.localeCompare(b.name));
+            
+            // Add scope header
+            output += `Scope Level ${level}${level === 0 ? " (Global)" : ""}\n`;
+            output += "─".repeat(60) + "\n";
+            
+            // Add table header
+            output += "Symbol".padEnd(15) + "│ " + 
+                     "Type".padEnd(10) + "│ " + 
+                     "Init".padEnd(6) + "│ " + 
+                     "Used".padEnd(6) + "│ " + 
+                     "Location\n";
+            
+            output += "─".repeat(15) + "┼" + "─".repeat(11) + "┼" + 
+                     "─".repeat(6) + "┼" + "─".repeat(6) + "┼" + "─".repeat(10) + "\n";
+            
+            // Add symbols for this scope
+            scopeSymbols.forEach(symbol => {
+                const initialized = symbol.initialized ? "Yes" : "No";
+                const used = symbol.isUsed ? "Yes" : "No";
+                
+                output += symbol.name.padEnd(15) + "│ " + 
+                         symbol.type.padEnd(10) + "│ " + 
+                         initialized.padEnd(5) + "│ " + 
+                         used.padEnd(5) + "│ " + 
+                         `${symbol.line}:${symbol.column}\n`;
+            });
+            
+            output += "\n\n";
         });
         
-        table += "└" + "─".repeat(maxNameLength + 2) + "┴" + 
-                "─".repeat(maxTypeLength + 2) + "┴" + 
-                "─".repeat(12) + "┴" + 
-                "─".repeat(8) + "┴" +
-                "─".repeat(8) + "┘";
-        
-        return table;
+        return output;
     }
 
-    // Add this method to check for unused variables
+    // Check for unused variables
     private checkUnusedVariables(): void {
-        const collectUnused = (table: SymbolTable) => {
-            table.getSymbols().forEach((symbol, name) => {
-                if (!symbol.isUsed) {
-                    this.addWarning(`Variable '${name}' is declared but never used`, 
-                        symbol.line, 
-                        symbol.column);
-                    this.addHint(`Consider removing the unused variable or using it in your code`, 
-                        symbol.line, 
-                        symbol.column);
-                }
-            });
-            if (table.parent) {
-                collectUnused(table.parent);
+        const unusedSymbols = this.symbolTable.getUnusedSymbols();
+        
+        for (const { symbol, scopeLevel } of unusedSymbols) {
+            this.addWarning(`Variable '${symbol.name}' is declared but never used`, 
+                symbol.line, 
+                symbol.column);
+            this.addHint(`Consider removing the unused variable or using it in your code`, 
+                symbol.line, 
+                symbol.column);
+        }
+    }
+
+    // Enhanced method to visualize the scope tree with better formatting
+    public visualizeScopeTree(): string {
+        const buildScopeTree = (scope: SymbolTable, indent: string = ""): string => {
+            let result = `${indent}${indent === "" ? "" : "└─ "}Scope Level ${scope.getScopeLevel()}${scope.getScopeLevel() === 0 ? " (Global)" : ""}\n`;
+            
+            // Add divider line for this scope
+            if (indent === "") {
+                result += "═".repeat(60) + "\n";
+            } else {
+                result += `${indent}   ${"─".repeat(40)}\n`;
             }
+            
+            // Get symbols and sort them by name
+            const symbols = Array.from(scope.getSymbols().entries())
+                .sort((a, b) => a[0].localeCompare(b[0]));
+            
+            // Add symbols in this scope
+            if (symbols.length > 0) {
+                result += `${indent}   Symbols: ${symbols.length}\n`;
+                
+                symbols.forEach(([name, symbol]) => {
+                    const initialized = symbol.isInitialized ? "Yes" : "No";
+                    const used = symbol.isUsed ? "Yes" : "No";
+                    
+                    result += `${indent}   ├─ ${name.padEnd(15)} : ${symbol.type.padEnd(8)} [Init: ${initialized} | Used: ${used}] @${symbol.line}:${symbol.column}\n`;
+                });
+            } else {
+                result += `${indent}   (No symbols in this scope)\n`;
+            }
+            
+            // Add child scopes
+            const childScopes = scope.getChildScopes();
+            if (childScopes.length > 0) {
+                result += `${indent}   Child Scopes: ${childScopes.length}\n`;
+                
+                childScopes.forEach((childScope, index) => {
+                    const isLast = index === childScopes.length - 1;
+                    const childIndent = indent + "   " + (isLast ? " " : "│");
+                    
+                    result += `${indent}   ${isLast ? "└" : "├"}── ${buildScopeTree(childScope, childIndent)}`;
+                });
+            }
+            
+            return result;
         };
-        collectUnused(this.symbolTable);
+        
+        return buildScopeTree(this.symbolTable);
+    }
+    
+    // Helper method to output current scope status
+    public getCurrentScopeInfo(): string {
+        const currentScopeLevel = this.currentScope.getScopeLevel();
+        const symbolCount = this.currentScope.getSymbols().size;
+        const parentScopeLevel = this.currentScope.getParentScope()?.getScopeLevel() ?? -1;
+        
+        return `Current Scope: Level ${currentScopeLevel}, ` +
+               `Symbols: ${symbolCount}, ` +
+               `Parent: ${parentScopeLevel >= 0 ? `Level ${parentScopeLevel}` : 'None'}, ` +
+               `Scope Stack Depth: ${this.scopeStack.length}`;
     }
 }
 
-// Make class available globally
+// Make classes available globally
 (window as any).SemanticAnalyser = SemanticAnalyser;
+(window as any).SymbolTable = SymbolTable;
 
 
 
