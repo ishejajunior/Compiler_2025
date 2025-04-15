@@ -1,0 +1,108 @@
+/* 1. Basic Variable Declarations and Type Checking */
+{
+    int a
+    string b
+    boolean c
+    a = 5
+    b = "hello"
+    c = true
+    print(a)
+    print(b)
+    print(c)
+}$
+
+/* 2. Nested Scopes with Variable Access */
+{
+    int a
+    a = 1
+    {
+        int b
+        b = 2
+        {
+            int c
+            c = 3
+            print(a)
+            print(b)
+            print(c)
+        }
+    }
+}$
+
+/* 3. Variable Shadowing */
+{
+    int counter
+    counter = 0
+    {
+        string counter
+        counter = "zero"
+        print(counter)
+    }
+    print(counter)
+}$
+
+/* 4. Complex Boolean Expressions */
+{
+    int a
+    int b
+    a = 5
+    b = 10
+    
+    if ((a == 5) == (b == 10)) {
+        print("complex condition is true")
+    }
+}$
+
+/* 5. All Variable Types in One Program */
+{
+    int i
+    string s
+    boolean b
+    i = 1
+    s = "text"
+    b = false
+    
+    if (b == false) {
+        print(i)
+        print(s)
+    }
+}$
+
+/* 6. Uninitialized Variables in Expressions */
+{
+    int x
+    int y
+    y = 10
+    
+    if (x == 5) {
+        print("x is 5")
+    }
+    
+    if (y == 10) {
+        print("y is 10")
+    }
+}$
+
+/* 7. Nested Blocks with Access to Outer Variables */
+{
+    int x
+    x = 5
+    {
+        {
+            {
+                print(x)
+            }
+        }
+    }
+}$
+
+/* 8. Multiple Programs with Separate Scopes */
+{
+    int x
+    x = 5
+    print(x)
+}$
+{
+    int y
+    y = 10
+    print(y)
+}$
