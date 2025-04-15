@@ -548,7 +548,7 @@ class SemanticAnalyser {
                 this.debug("Found digit in expression");
                 return this.analyzeIntExpr();
             case 'QUOTE':
-                this.debug("Found quote in expression");
+                this.debug(`Found quote in expression (start of string)`);
                 return this.analyzeStringExpr();
             case 'BOOLVAL':
                 this.debug("Found boolean value in expression");
@@ -729,6 +729,7 @@ class SemanticAnalyser {
         const startLine = this.getCurrentToken().line;
         const startColumn = this.getCurrentToken().column;
         
+        this.debug(`Starting string expression analysis at ${startLine}:${startColumn}`);
         this.advance(); // Skip opening quote
 
         // Collect all characters into a single string
@@ -737,6 +738,7 @@ class SemanticAnalyser {
             if (this.getCurrentToken().type === 'CHAR' || 
                 this.getCurrentToken().type === 'SPACE') {
                 stringValue += this.getCurrentToken().value;
+                this.debug(`Added character to string: '${this.getCurrentToken().value}'`);
                 this.advance();
             } else {
                 this.addError("Invalid character in string", 
@@ -753,6 +755,7 @@ class SemanticAnalyser {
             return null;
         }
 
+        this.debug(`Completed string expression: "${stringValue}"`);
         this.advance(); // Skip closing quote
         
         // Return a single string expression with the complete string value
@@ -769,44 +772,114 @@ class SemanticAnalyser {
         const token = this.getCurrentToken();
         this.debug(`Analyzing boolean expression starting with: ${token.type} [${token.value}]`);
 
-        // Handle boolean literals directly
+        // Case 1: Direct boolean literals
         if (token.type === 'BOOLVAL') {
             this.debug(`Found boolean literal: ${token.value}`);
+            const value = token.value;
             this.advance();
+            
+            // Check if this is a comparison with another boolean
+            if (this.getCurrentToken().type === 'BOOLOP') {
+                const op = this.getCurrentToken().value;
+                this.debug(`Found boolean operator: ${op}`);
+                this.advance();
+                
+                // Right side should be another boolean
+                if (this.getCurrentToken().type !== 'BOOLVAL') {
+                    this.addError("Expected boolean value after operator", 
+                        this.getCurrentToken().line, 
+                        this.getCurrentToken().column);
+                    return null;
+                }
+                
+                const rightValue = this.getCurrentToken().value;
+                this.advance();
+                
+                return {
+                    type: 'boolexpr',
+                    value: op,
+                    children: [
+                        { type: 'boolval', value: value!, children: [] },
+                        { type: 'boolval', value: rightValue!, children: [] }
+                    ]
+                };
+            }
+            
+            // If no operator, just return the boolean value
             return {
                 type: 'boolexpr',
-                value: token.value!,
+                value: value!,
                 children: []
             };
         }
-
-        // Handle simple comparison expressions without parentheses
-        // This handles cases like: a != 5 or x == y
-        let leftExpr = this.analyzeExpression();
+        
+        // Case 2: String comparison - special handling for quotes
+        if (token.type === 'QUOTE') {
+            // Parse left string
+            const leftString = this.analyzeStringExpr();
+            if (!leftString) {
+                return null;
+            }
+            
+            // Expect a comparison operator
+            if (this.getCurrentToken().type !== 'BOOLOP') {
+                this.addError("Expected boolean operator (== or !=) after string", 
+                    this.getCurrentToken().line, 
+                    this.getCurrentToken().column);
+                return null;
+            }
+            
+            const op = this.getCurrentToken().value;
+            this.advance();
+            
+            // Expect another string on the right
+            if (this.getCurrentToken().type !== 'QUOTE') {
+                this.addError("Expected string after comparison operator", 
+                    this.getCurrentToken().line, 
+                    this.getCurrentToken().column);
+                return null;
+            }
+            
+            const rightString = this.analyzeStringExpr();
+            if (!rightString) {
+                return null;
+            }
+            
+            return {
+                type: 'boolexpr',
+                value: op,
+                children: [leftString, rightString]
+            };
+        }
+        
+        // Case 3: Numeric or identifier comparison
+        const leftExpr = this.analyzeExpression();
         if (!leftExpr) {
             this.debug("Failed to parse left side of boolean expression");
             return null;
         }
-
-        // Check for boolean operator
+        this.debug(`Parsed left side of comparison: ${leftExpr.type} ${leftExpr.value || ''}`);
+        
+        // After left expression, we need a comparison operator
         if (this.getCurrentToken().type !== 'BOOLOP') {
             this.addError("Expected boolean operator (== or !=)", 
                 this.getCurrentToken().line, 
                 this.getCurrentToken().column);
             return null;
         }
-
+        
         const op = this.getCurrentToken().value;
         this.debug(`Found boolean operator: ${op}`);
         this.advance();
-
+        
         // Parse right expression
         const rightExpr = this.analyzeExpression();
         if (!rightExpr) {
             this.debug("Failed to parse right side of boolean expression");
             return null;
         }
-
+        this.debug(`Parsed right side of comparison: ${rightExpr.type} ${rightExpr.value || ''}`);
+        
         // Type checking for boolean expressions
         const leftType = this.getExpressionType(leftExpr);
         const rightType = this.getExpressionType(rightExpr);
@@ -820,7 +893,7 @@ class SemanticAnalyser {
                 token.line, 
                 token.column);
         }
-
+        
         return {
             type: 'boolexpr',
             value: op,
@@ -858,14 +931,21 @@ class SemanticAnalyser {
             return true;
         }
 
-        // Specific type comparison rules
-        if (type1 === 'int' && type2 === 'int') {
+        // Handle int comparisons (allowing digits to be compared with int variables)
+        if ((type1 === 'int' || type1 === 'digit' || type1 === 'intexpr') && 
+            (type2 === 'int' || type2 === 'digit' || type2 === 'intexpr')) {
             return true;
         }
-        if (type1 === 'string' && type2 === 'string') {
+        
+        // Handle string comparisons
+        if ((type1 === 'string' || type1 === 'stringexpr') && 
+            (type2 === 'string' || type2 === 'stringexpr')) {
             return true;
         }
-        if (type1 === 'boolean' && type2 === 'boolean') {
+        
+        // Handle boolean comparisons
+        if ((type1 === 'boolean' || type1 === 'boolexpr' || type1 === 'boolval') && 
+            (type2 === 'boolean' || type2 === 'boolexpr' || type2 === 'boolval')) {
             return true;
         }
 
@@ -914,6 +994,15 @@ class SemanticAnalyser {
         this.debug(`Analyzing if statement at line ${this.getCurrentToken().line}`);
         this.advance(); // Skip 'if'
 
+        // Expect opening parenthesis
+        if (this.getCurrentToken().type !== 'LPAREN') {
+            this.addError("Expected '(' after if", 
+                this.getCurrentToken().line, 
+                this.getCurrentToken().column);
+            return null;
+        }
+        this.advance(); // Skip the opening parenthesis
+
         // Parse the boolean expression
         const conditionNode = this.analyzeBoolExpr();
         if (!conditionNode) {
@@ -921,6 +1010,15 @@ class SemanticAnalyser {
             return null;
         }
         this.debug(`Successfully parsed if condition: ${conditionNode.type}`);
+
+        // Expect closing parenthesis
+        if (this.getCurrentToken().type !== 'RPAREN') {
+            this.addError("Expected ')' at end of if condition", 
+                this.getCurrentToken().line, 
+                this.getCurrentToken().column);
+            return null;
+        }
+        this.advance(); // Skip the closing parenthesis
 
         // For if blocks, we want to create a new scope but inherit the parent's symbols
         this.enterScope();
@@ -954,7 +1052,7 @@ class SemanticAnalyser {
                 this.getCurrentToken().column);
             return null;
         }
-        this.advance();
+        this.advance(); // Skip the opening parenthesis
 
         // Use analyzeBoolExpr for the condition
         const conditionNode = this.analyzeBoolExpr();
@@ -979,7 +1077,7 @@ class SemanticAnalyser {
                 this.getCurrentToken().column);
             return null;
         }
-        this.advance();
+        this.advance(); // Skip the closing parenthesis
 
         // Create a new scope for the while body
         this.enterScope();
