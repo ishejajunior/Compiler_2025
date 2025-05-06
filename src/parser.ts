@@ -15,6 +15,28 @@ class TreeNode {
     }
 }
 
+// Reference to the Token class defined in Lexer.Ts
+declare class Token {
+    type: string;
+    value: string | null;
+    line: number;
+    column: number;
+
+    constructor(type: string, value: string | null);
+}
+
+// Reference to the Lexer class defined in Lexer.Ts
+declare class Lexer {
+    currentErrorMessage: string;
+    errors: string[];
+    line: number;
+    column: number;
+
+    constructor(input: string);
+    getNextToken(): Token;
+    formatToken(type: string, value: string | null): string;
+}
+
 class Parser {
     private tokens: Token[];
     private currentTokenIndex: number;

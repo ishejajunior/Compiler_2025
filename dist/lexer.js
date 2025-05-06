@@ -257,6 +257,9 @@ class Lexer {
         }
     }
 }
+// Make classes available globally
+window.Token = Token;
+window.Lexer = Lexer;
 function compile() {
     const sourceCode = document.getElementById('sourceCode').value;
     const outputDiv = document.getElementById('output');
@@ -310,4 +313,4 @@ function compile() {
         outputDiv.innerHTML += `<div class='error'>LEXER --> | Fatal error in Program ${programCount}: ${error}</div>`;
     }
 }
-//# sourceMappingURL=lexer.js.map
+//# sourceMappingURL=Lexer.js.map

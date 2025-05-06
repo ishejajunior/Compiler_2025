@@ -22,6 +22,7 @@ class Compile {
             fullOutput += `<h4>Lexical Analysis</h4>`;
             
             // Lexical Analysis
+            // @ts-ignore: Ignore the TS error as Lexer is defined globally
             const lexer = new Lexer(programs[i] + '$');
             let tokens: Token[] = [];
             
@@ -147,6 +148,35 @@ class Compile {
                             overflow: auto;
                             max-height: 500px;
                         ">${SemanticAnalyser.visualizeAST(ast)}</pre>`;
+                        
+                        // Code Generation Phase
+                        fullOutput += `<h4>Code Generation</h4>`;
+                        const codeGenerator = new CodeGen(ast);
+                        codeGenerator.enableDebug();
+                        
+                        // Enable debug output for code generator
+                        fullOutput += `<div style="color: #666; margin-left: 20px;">CODEGEN --> Starting code generation</div>`;
+                        
+                        // Generate 6502 assembly code
+                        const generatedCode = codeGenerator.generate();
+                        
+                        if (generatedCode.length > 0) {
+                            fullOutput += `<div style="color: #4CAF50; font-weight: bold;">Code generation completed successfully</div>`;
+                            
+                            // Display 6502 Assembly Code with syntax highlighting
+                            fullOutput += `<h4>6502 Assembly Code</h4>`;
+                            fullOutput += codeGenerator.visualizeCodeHTML();
+                            
+                            // Display Binary Machine Code
+                            fullOutput += `<h4>Machine Code</h4>`;
+                            fullOutput += codeGenerator.visualizeBinaryHTML();
+                            
+                            // Display Memory Map
+                            fullOutput += `<h4>Memory Map</h4>`;
+                            fullOutput += codeGenerator.visualizeMemoryHTML();
+                        } else {
+                            fullOutput += `<div style="color: red; font-weight: bold;">Code generation failed</div>`;
+                        }
                     }
                 }
 
