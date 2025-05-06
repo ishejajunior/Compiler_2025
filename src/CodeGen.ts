@@ -1276,7 +1276,7 @@ class CodeGen {
             
             // Safety break to prevent infinite loops in case of bad instruction size logic
             if (instructionSize <= 0) {
-                this.debug(`ERROR: Invalid instruction size ${instructionSize} calculated at address 0x${(i - instructionSize).toString(16).toUpperCase()}. Stopping validation.`);
+                this.debug(`ERRO: Invalid instruction size ${instructionSize} calculated at address 0x${(i - instructionSize).toString(16).toUpperCase()}. Stopping validation.`);
                 break;
             }
         }
